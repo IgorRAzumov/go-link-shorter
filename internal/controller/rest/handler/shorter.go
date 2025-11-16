@@ -14,7 +14,7 @@ import (
 
 func ShortenHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		if request.Method != http.MethodPost || IsTextPlain(request.Header.Get(common.ContentType)) {
+		if request.Method != http.MethodPost || !IsTextPlain(request.Header.Get(common.ContentType)) {
 			common.BadRequestError(writer, nil)
 			return
 		}
