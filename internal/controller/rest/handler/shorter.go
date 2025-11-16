@@ -25,7 +25,7 @@ func ShortenHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
 			return
 		}
 
-		originalURL, err := parseUrl(string(body))
+		originalURL, err := parseURL(string(body))
 		if err != nil {
 			common.BadRequestError(writer, err)
 			return
@@ -69,7 +69,7 @@ func readBody(request *http.Request) ([]byte, error) {
 	return body, err
 }
 
-func parseUrl(URL string) (*url.URL, error) {
+func parseURL(URL string) (*url.URL, error) {
 	log.Printf("Parsing URL: %s", URL)
 	parsedURL, err := url.Parse(common.NormalizeURL(URL))
 	if err != nil {

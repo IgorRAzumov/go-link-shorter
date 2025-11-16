@@ -4,12 +4,12 @@ import (
 	"net/http"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler"
-	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middlewear"
+	middleware "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middlewear"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase/link"
 )
 
 func NewRouter(usecase *link.Usecase) http.Handler {
-	return middleware.HttpLogger(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	return middleware.HTTPLogger(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/" && request.Method == http.MethodPost {
 			handler.ShortenHandler(usecase)(writer, request)
 			return
