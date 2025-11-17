@@ -5,22 +5,16 @@ import (
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/reolver"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter"
-	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middlewear"
+	restmiddleware "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middlewear"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase/link"
+	"github.com/go-chi/chi/v5"
 )
 
 func NewRouter(usecase *link.Usecase) http.Handler {
-	return middleware.HTTPLogger(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/" && request.Method == http.MethodPost {
-			shorter.Handler(usecase)(writer, request)
-			return
-		}
+	router := chi.NewRouter()
 
-		if request.URL.Path != "/" && request.Method == http.MethodGet {
-			reolver.Handler(usecase)(writer, request)
-			return
-		}
-
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-	}))
+	router.Use(restmiddleware.HTTPLogger)
+	router.Post("/", shorter.Handler(usecase))
+	router.Get("/{shortKey}", reolver.Handler(usecase))
+	return router
 }
