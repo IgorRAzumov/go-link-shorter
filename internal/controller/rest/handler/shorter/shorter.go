@@ -37,7 +37,7 @@ func Handler(usecase usecase.LinkUsecase) http.HandlerFunc {
 			return
 		}
 
-		baseURL := usecase.GetBaseUrl()
+		baseURL := usecase.GetBaseURL()
 		if baseURL != "" {
 			sendResponse(writer, baseURL+"/"+shortKey)
 		} else {

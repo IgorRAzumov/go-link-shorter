@@ -26,6 +26,6 @@ func (usecase *Usecase) CreateShortKey(URL string) string {
 	return shortKey
 }
 
-func (usecase *Usecase) GetBaseUrl() string {
+func (usecase *Usecase) GetBaseURL() string {
 	return usecase.baseURL
 }
