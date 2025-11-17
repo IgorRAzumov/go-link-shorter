@@ -48,7 +48,7 @@ func TestShortenHandler_WrongContentType(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
 			mockUsecase := &commontesting.MockLinkUsecase{
-				GetBaseUrlFunc: func() string {
+				GetBaseURLFunc: func() string {
 					return "http://localhost:8080"
 				},
 			}
@@ -163,7 +163,7 @@ func TestShortenHandler_CreateShortKeyReturnsEmpty(t *testing.T) {
 func TestShortenHandler_Success_HTTP(t *testing.T) {
 	expectedShortKey := "abc123"
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetBaseUrlFunc: func() string {
+		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
 		CreateShortKeyFunc: func(URL string) string {
@@ -201,7 +201,7 @@ func TestShortenHandler_Success_HTTP(t *testing.T) {
 func TestShortenHandler_Success_HTTPS_TLS(t *testing.T) {
 	expectedShortKey := "xyz789"
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetBaseUrlFunc: func() string {
+		GetBaseURLFunc: func() string {
 			return "https://example.com"
 		},
 		CreateShortKeyFunc: func(URL string) string {
@@ -232,7 +232,7 @@ func TestShortenHandler_Success_HTTPS_TLS(t *testing.T) {
 func TestShortenHandler_Success_HTTPS_XForwardedProto(t *testing.T) {
 	expectedShortKey := "def456"
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetBaseUrlFunc: func() string {
+		GetBaseURLFunc: func() string {
 			return "https://example.com"
 		},
 		CreateShortKeyFunc: func(URL string) string {
@@ -263,7 +263,7 @@ func TestShortenHandler_Success_HTTPS_XForwardedProto(t *testing.T) {
 func TestShortenHandler_ResponseWriteError(t *testing.T) {
 	expectedShortKey := "test123"
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetBaseUrlFunc: func() string {
+		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
 		CreateShortKeyFunc: func(URL string) string {
@@ -437,7 +437,7 @@ func TestSendResponse_WriteError(t *testing.T) {
 
 func TestShortenHandler_URLCreatesWithCorrectFormat(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetBaseUrlFunc: func() string {
+		GetBaseURLFunc: func() string {
 			return "http://myserver.com:9090"
 		},
 		CreateShortKeyFunc: func(URL string) string {
@@ -466,7 +466,7 @@ func TestShortenHandler_URLCreatesWithCorrectFormat(t *testing.T) {
 
 func TestShortenHandler_NormalizesURL(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetBaseUrlFunc: func() string {
+		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
 		CreateShortKeyFunc: func(URL string) string {
@@ -493,7 +493,7 @@ func TestShortenHandler_NormalizesURL(t *testing.T) {
 
 func TestShortenHandler_HandlesBodyWithWhitespace(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetBaseUrlFunc: func() string {
+		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
 		CreateShortKeyFunc: func(URL string) string {
