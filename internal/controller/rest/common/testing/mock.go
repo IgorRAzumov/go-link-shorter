@@ -7,6 +7,7 @@ import (
 type MockLinkUsecase struct {
 	GetFullURLByShortKeyFunc func(shortKey string) (string, error)
 	CreateShortKeyFunc       func(URL string) string
+	GetBaseUrlFunc           func() string
 }
 
 func (mock *MockLinkUsecase) GetFullURLByShorKey(shortKey string) (string, error) {
@@ -19,6 +20,13 @@ func (mock *MockLinkUsecase) GetFullURLByShorKey(shortKey string) (string, error
 func (mock *MockLinkUsecase) CreateShortKey(URL string) string {
 	if mock.CreateShortKeyFunc != nil {
 		return mock.CreateShortKeyFunc(URL)
+	}
+	return ""
+}
+
+func (mock *MockLinkUsecase) GetBaseUrl() string {
+	if mock.GetBaseUrlFunc != nil {
+		return mock.GetBaseUrlFunc()
 	}
 	return ""
 }

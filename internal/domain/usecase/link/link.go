@@ -7,10 +7,11 @@ import (
 type Usecase struct {
 	resolver service.ResolverService
 	shorter  service.ShorterService
+	baseURL  string
 }
 
-func NewLinkUsecase(resolver service.ResolverService, shorter service.ShorterService) *Usecase {
-	return &Usecase{resolver: resolver, shorter: shorter}
+func NewLinkUsecase(resolver service.ResolverService, shorter service.ShorterService, baseURL string) *Usecase {
+	return &Usecase{resolver: resolver, shorter: shorter, baseURL: baseURL}
 }
 
 func (usecase *Usecase) GetFullURLByShorKey(shortKey string) (string, error) {
@@ -23,4 +24,8 @@ func (usecase *Usecase) CreateShortKey(URL string) string {
 		return usecase.shorter.CreateShortKey(URL)
 	}
 	return shortKey
+}
+
+func (usecase *Usecase) GetBaseUrl() string {
+	return usecase.baseURL
 }

@@ -37,13 +37,16 @@ func Handler(usecase usecase.LinkUsecase) http.HandlerFunc {
 			return
 		}
 
-		scheme := "http"
-		if request.TLS != nil || request.Header.Get("X-Forwarded-Proto") == "https" {
-			scheme = "https"
+		baseURL := usecase.GetBaseUrl()
+		if baseURL != "" {
+			sendResponse(writer, baseURL+"/"+shortKey)
+		} else {
+			scheme := "http"
+			if request.TLS != nil || request.Header.Get("X-Forwarded-Proto") == "https" {
+				scheme = "https"
+			}
+			sendResponse(writer, scheme+"://"+request.Host+"/"+shortKey)
 		}
-
-		shortURL := scheme + "://" + request.Host + "/" + shortKey
-		sendResponse(writer, shortURL)
 	}
 }
 
