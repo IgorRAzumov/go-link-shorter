@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 )
 
@@ -13,23 +14,36 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
-	cfg := &Config{}
+	config := &Config{}
+	extractStartConfig(config)
 
-	flag.StringVar(&cfg.ServerAddress, "a", "localhost:8080", "server address")
-	flag.StringVar(&cfg.BaseShortURL, "b", "", "base shorter URL")
-
-	flag.Parse()
-
-	if cfg.BaseShortURL != "" {
-		parsedURL, err := url.Parse(cfg.BaseShortURL)
+	if config.BaseShortURL != "" {
+		parsedURL, err := url.Parse(config.BaseShortURL)
 		if err != nil {
 			return nil, fmt.Errorf("invalid base shorter URL: %w", err)
 		}
-		cfg.BaseShortURL = strings.TrimSuffix(cfg.BaseShortURL, "/")
+
+		config.BaseShortURL = strings.TrimSuffix(config.BaseShortURL, "/")
 		if parsedURL.Scheme == "" || parsedURL.Host == "" {
 			return nil, fmt.Errorf("invalid base shorter URL")
 		}
 	}
 
-	return cfg, nil
+	return config, nil
+}
+
+func extractStartConfig(cfg *Config) {
+	flag.StringVar(&cfg.ServerAddress, "a", "localhost:8080", "server address")
+	flag.StringVar(&cfg.BaseShortURL, "b", "", "base shorter URL")
+	flag.Parse()
+
+	envServerAddress := os.Getenv("SERVER_ADDRESS")
+	if envServerAddress != "" {
+		cfg.ServerAddress = envServerAddress
+	}
+
+	envBaseShortURL := os.Getenv("BASE_URL")
+	if envBaseShortURL != "" {
+		cfg.BaseShortURL = envBaseShortURL
+	}
 }
