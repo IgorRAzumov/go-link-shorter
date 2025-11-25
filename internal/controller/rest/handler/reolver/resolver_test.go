@@ -1,12 +1,14 @@
 package reolver
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	commontesting "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common/testing"
+	"github.com/go-chi/chi/v5"
 )
 
 func TestResolveHandler_EmptyPath(t *testing.T) {
@@ -32,6 +34,7 @@ func TestResolveHandler_SingleCharPath_NotFound(t *testing.T) {
 	handler := Handler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodGet, "/a", nil)
+	request = setURLParam(request, "shortKey", "a")
 	writer := httptest.NewRecorder()
 
 	handler(writer, request)
@@ -46,26 +49,24 @@ func TestResolveHandler_PathLengthLessThanTwo(t *testing.T) {
 	handler := Handler(mockUsecase)
 
 	testCases := []struct {
-		path        string
+		shortKey    string
 		description string
-		forceEmpty  bool
 	}{
-		{"/", "Root path (length 1)", false},
-		{"/", "Empty path (length 0)", true},
+		{"", "Empty shortKey"},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, testCase.path, nil)
-			if testCase.forceEmpty {
-				req.URL.Path = ""
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			if testCase.shortKey != "" {
+				req = setURLParam(req, "shortKey", testCase.shortKey)
 			}
 			w := httptest.NewRecorder()
 
 			handler(w, req)
 
 			if w.Code != http.StatusBadRequest {
-				t.Errorf("Expected status code %d for path '%s', got %d", http.StatusBadRequest, req.URL.Path, w.Code)
+				t.Errorf("Expected status code %d for shortKey '%s', got %d", http.StatusBadRequest, testCase.shortKey, w.Code)
 			}
 		})
 	}
@@ -80,6 +81,7 @@ func TestResolveHandler_UsecaseReturnsError(t *testing.T) {
 	handler := Handler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodGet, "/abc123", nil)
+	request = setURLParam(request, "shortKey", "abc123")
 	writer := httptest.NewRecorder()
 
 	handler(writer, request)
@@ -98,6 +100,7 @@ func TestResolveHandler_UsecaseReturnsEmptyString(t *testing.T) {
 	handler := Handler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodGet, "/abc123", nil)
+	request = setURLParam(request, "shortKey", "abc123")
 	writer := httptest.NewRecorder()
 
 	handler(writer, request)
@@ -121,6 +124,7 @@ func TestResolveHandler_Success(t *testing.T) {
 	handler := Handler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodGet, "/"+shortKey, nil)
+	request = setURLParam(request, "shortKey", shortKey)
 	writer := httptest.NewRecorder()
 
 	handler(writer, request)
@@ -137,13 +141,14 @@ func TestResolveHandler_Success(t *testing.T) {
 
 func TestResolveHandler_ExtractsShortKeyCorrectly(t *testing.T) {
 	testCases := []struct {
-		path     string
+		shortKey string
 		expected string
+		path     string
 	}{
-		{"/abc", "abc"},
-		{"/abc123", "abc123"},
-		{"/very/long/pathsdsdsdsdsdsdsdsdsdsdsdsdsdsdsd", "very/long/pathsdsdsdsdsdsdsdsdsdsdsdsdsdsdsd"},
-		{"/1234567890", "1234567890"},
+		{"abc", "abc", "/abc"},
+		{"abc123", "abc123", "/abc123"},
+		{"very/long/pathsdsdsdsdsdsdsdsdsdsdsdsdsdsdsd", "very/long/pathsdsdsdsdsdsdsdsdsdsdsdsdsdsdsd", "/very/long/pathsdsdsdsdsdsdsdsdsdsdsdsdsdsdsd"},
+		{"1234567890", "1234567890", "/1234567890"},
 	}
 
 	for _, testCase := range testCases {
@@ -158,6 +163,7 @@ func TestResolveHandler_ExtractsShortKeyCorrectly(t *testing.T) {
 			handler := Handler(mockUsecase)
 
 			request := httptest.NewRequest(http.MethodGet, testCase.path, nil)
+			request = setURLParam(request, "shortKey", testCase.shortKey)
 			writer := httptest.NewRecorder()
 
 			handler(writer, request)
@@ -171,4 +177,10 @@ func TestResolveHandler_ExtractsShortKeyCorrectly(t *testing.T) {
 			}
 		})
 	}
+}
+
+func setURLParam(r *http.Request, key, value string) *http.Request {
+	routeContext := chi.NewRouteContext()
+	routeContext.URLParams.Add(key, value)
+	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, routeContext))
 }

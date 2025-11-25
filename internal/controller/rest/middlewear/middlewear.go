@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-func HTTPLogger(next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func HTTPLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[REQUEST] %s %s %s",
 			r.Method,
 			r.URL.Path,
@@ -32,7 +32,7 @@ func HTTPLogger(next http.Handler) http.HandlerFunc {
 		}()
 
 		next.ServeHTTP(responseLogger, r)
-	}
+	})
 }
 
 type httpLogger struct {
