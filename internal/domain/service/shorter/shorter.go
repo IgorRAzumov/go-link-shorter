@@ -1,12 +1,13 @@
 package shorter
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"log"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/repository"
+	"github.com/rs/zerolog/log"
 )
 
 type Service struct {
@@ -17,10 +18,10 @@ func NewShorterService(repository repository.LinkRepository) *Service {
 	return &Service{repository}
 }
 
-func (service *Service) CreateShortKey(URL string) string {
+func (service *Service) CreateShortKey(context context.Context, URL string) string {
 	shortKey := generateShortKey(URL)
-	log.Printf("created shortKey%s", shortKey)
-	service.linkRepo.Save(model.Link{ShortKey: shortKey, FullURL: URL})
+	log.Debug().Str("short_key", shortKey).Str("url", URL).Msg("created shortKey")
+	service.linkRepo.Save(context, &model.Link{ShortKey: shortKey, FullURL: URL})
 	return shortKey
 }
 

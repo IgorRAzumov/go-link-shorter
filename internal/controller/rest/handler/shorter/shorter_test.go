@@ -1,6 +1,7 @@
 package shorter
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"io"
@@ -26,7 +27,7 @@ func TestShortenHandler_WrongMethod(t *testing.T) {
 
 			handler(writer, request)
 
-			if writer.Code != http.StatusBadRequest {
+			if writer.Code != http.StatusMethodNotAllowed {
 				t.Errorf("Expected status code %d for method %s, got %d", http.StatusBadRequest, method, writer.Code)
 			}
 		})
@@ -53,7 +54,7 @@ func TestShortenHandler_WrongContentType(t *testing.T) {
 				},
 			}
 			if strings.Contains(testCase.contentType, "text/plain") && testCase.contentType != "" {
-				mockUsecase.CreateShortKeyFunc = func(URL string) string {
+				mockUsecase.CreateShortKeyFunc = func(context context.Context, URL string) string {
 					return "short-key"
 				}
 			}
@@ -68,11 +69,11 @@ func TestShortenHandler_WrongContentType(t *testing.T) {
 			handler(writer, request)
 
 			if strings.Contains(testCase.contentType, "text/plain") && testCase.contentType != "" {
-				if writer.Code == http.StatusBadRequest {
+				if writer.Code == http.StatusMethodNotAllowed {
 					t.Errorf("Expected success for content type '%s', got BadRequest", testCase.contentType)
 				}
 			} else {
-				if writer.Code != http.StatusBadRequest {
+				if writer.Code != http.StatusMethodNotAllowed {
 					t.Errorf("Expected status code %d for content type '%s', got %d", http.StatusBadRequest, testCase.contentType, writer.Code)
 				}
 			}
@@ -143,7 +144,7 @@ func TestShortenHandler_InvalidURL(t *testing.T) {
 
 func TestShortenHandler_CreateShortKeyReturnsEmpty(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeyFunc: func(URL string) string {
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			return ""
 		},
 	}
@@ -166,7 +167,7 @@ func TestShortenHandler_Success_HTTP(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(URL string) string {
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			if URL != "https://example.com" {
 				t.Errorf("Expected URL 'https://example.com', got '%s'", URL)
 			}
@@ -204,7 +205,7 @@ func TestShortenHandler_Success_HTTPS_TLS(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "https://example.com"
 		},
-		CreateShortKeyFunc: func(URL string) string {
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			return expectedShortKey
 		},
 	}
@@ -235,7 +236,7 @@ func TestShortenHandler_Success_HTTPS_XForwardedProto(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "https://example.com"
 		},
-		CreateShortKeyFunc: func(URL string) string {
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			return expectedShortKey
 		},
 	}
@@ -266,7 +267,7 @@ func TestShortenHandler_ResponseWriteError(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(URL string) string {
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			return expectedShortKey
 		},
 	}
@@ -440,7 +441,7 @@ func TestShortenHandler_URLCreatesWithCorrectFormat(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://myserver.com:9090"
 		},
-		CreateShortKeyFunc: func(URL string) string {
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			return "short123"
 		},
 	}
@@ -469,7 +470,7 @@ func TestShortenHandler_NormalizesURL(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(URL string) string {
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			if URL == "https://example.com" {
 				return "normalized123"
 			}
@@ -496,7 +497,7 @@ func TestShortenHandler_HandlesBodyWithWhitespace(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(URL string) string {
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			if URL == "https://example.com" {
 				return "trimmed123"
 			}

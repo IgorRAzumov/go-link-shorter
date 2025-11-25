@@ -1,28 +1,30 @@
 package common
 
 import (
-	"log"
 	"net/http"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 const TextPlain = "text/plain"
 const ContentType = "Content-Type"
 
 func BadRequestError(writer http.ResponseWriter, err error) {
-	if err != nil {
-		log.Printf("Validation error: %v", err)
-	} else {
-		log.Println("Validation error: incorrect request")
-	}
-
+	log.Warn().Err(err).Msg("Validation error")
 	http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 }
 
+func MethodNotAllowedError(writer http.ResponseWriter) {
+	message := http.StatusText(http.StatusMethodNotAllowed)
+	log.Warn().Err(nil).Msg(message)
+	http.Error(writer, message, http.StatusMethodNotAllowed)
+}
+
 func InternalError(writer http.ResponseWriter, err error) {
-	errorText := http.StatusText(http.StatusInternalServerError)
-	log.Printf("%s %v", errorText, err)
-	http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	message := http.StatusText(http.StatusInternalServerError)
+	log.Error().Err(err).Msg(message)
+	http.Error(writer, message, http.StatusInternalServerError)
 }
 
 func NormalizeURL(url string) string {

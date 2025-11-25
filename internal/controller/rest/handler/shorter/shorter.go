@@ -3,19 +3,19 @@ package shorter
 import (
 	"fmt"
 	"io"
-	"log"
 	"mime"
 	"net/http"
 	"net/url"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
+	"github.com/rs/zerolog/log"
 )
 
 func Handler(usecase usecase.LinkUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		if request.Method != http.MethodPost || !IsTextPlain(request.Header.Get(common.ContentType)) {
-			common.BadRequestError(writer, nil)
+		if !IsTextPlain(request.Header.Get(common.ContentType)) {
+			common.MethodNotAllowedError(writer)
 			return
 		}
 
@@ -31,7 +31,8 @@ func Handler(usecase usecase.LinkUsecase) http.HandlerFunc {
 			return
 		}
 
-		shortKey := usecase.CreateShortKey(originalURL.String())
+		context := request.Context()
+		shortKey := usecase.CreateShortKey(context, originalURL.String())
 		if shortKey == "" {
 			common.BadRequestError(writer, err)
 			return
@@ -65,7 +66,7 @@ func readBody(request *http.Request) ([]byte, error) {
 	defer func(Body io.ReadCloser) {
 		readerBodyErr := Body.Close()
 		if err != nil {
-			log.Printf("Request body error: %v", readerBodyErr)
+			log.Error().Err(readerBodyErr).Msg("Request body error")
 		}
 	}(request.Body)
 
@@ -73,7 +74,7 @@ func readBody(request *http.Request) ([]byte, error) {
 }
 
 func parseURL(URL string) (*url.URL, error) {
-	log.Printf("Parsing URL: %s", URL)
+	log.Debug().Str("url", URL).Msg("Parsing URL")
 	parsedURL, err := url.Parse(common.NormalizeURL(URL))
 	if err != nil {
 		return nil, err
