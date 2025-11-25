@@ -1,4 +1,4 @@
-package handler
+package shorter
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
 
-func ShortenHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
+func Handler(usecase usecase.LinkUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method != http.MethodPost || !IsTextPlain(request.Header.Get(common.ContentType)) {
 			common.BadRequestError(writer, nil)

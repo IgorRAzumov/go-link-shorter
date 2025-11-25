@@ -1,4 +1,4 @@
-package handler
+package reolver
 
 import (
 	"net/http"
@@ -7,7 +7,7 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
 
-func ResolveHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
+func Handler(usecase usecase.LinkUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "" || len(request.URL.Path) < 2 {
 			common.BadRequestError(writer, nil)
