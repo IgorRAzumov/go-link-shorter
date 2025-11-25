@@ -21,7 +21,10 @@ func NewInMemoryStorage() *LinkStorage {
 func (storage *LinkStorage) GetByShortKey(context context.Context, shortURL string) string {
 	log.Debug().Str("short_key", shortURL).Msg("storage: GetByShortKey")
 	value, _ := storage.linksByID.Load(shortURL)
-	return value.(model.Link).FullURL
+	if link, ok := value.(*model.Link); ok {
+		return link.FullURL
+	}
+	return ""
 }
 
 func (storage *LinkStorage) IsExistShortKey(context context.Context, shortKey string) bool {
@@ -34,7 +37,9 @@ func (storage *LinkStorage) GetShortKeyByURL(context context.Context, URL string
 	log.Debug().Str("url", URL).Msg("storage: GetByURL")
 	value, ok := storage.linksByURL.Load(common.NormalizeURL(URL))
 	if ok {
-		return value.(model.Link).ShortKey
+		if link, ok := value.(*model.Link); ok {
+			return link.ShortKey
+		}
 	}
 	return ""
 }
