@@ -1,34 +1,31 @@
 package middleware
 
 import (
-	"log"
 	"net/http"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 func HTTPLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[REQUEST] %s %s %s",
-			r.Method,
-			r.URL.Path,
-			r.RemoteAddr,
-		)
-
-		log.Printf("[REQUEST] %s",
-			r.RequestURI,
-		)
+		log.Info().
+			Str("method", r.Method).
+			Str("path", r.URL.Path).
+			Str("remote_addr", r.RemoteAddr).
+			Msg("REQUEST")
 
 		start := time.Now()
 		responseLogger := &httpLogger{w, http.StatusOK}
 
 		defer func() {
 			duration := time.Since(start)
-			log.Printf("[RESPONSE] %d %s %s %v",
-				responseLogger.status,
-				r.Method,
-				r.URL.Path,
-				duration,
-			)
+			log.Info().
+				Int("status", responseLogger.status).
+				Str("method", r.Method).
+				Str("path", r.URL.Path).
+				Dur("duration", duration).
+				Msg("RESPONSE")
 		}()
 
 		next.ServeHTTP(responseLogger, r)

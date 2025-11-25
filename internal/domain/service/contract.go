@@ -1,10 +1,12 @@
 package service
 
+import "context"
+
 type ResolverService interface {
-	GetFullLink(shortKey string) (string, error)
-	GetShortKeyByURL(url string) string
+	GetFullLink(context context.Context, shortKey string) (string, error)
+	GetShortKeyByURL(context context.Context, url string) string
 }
 
 type ShorterService interface {
-	CreateShortKey(URL string) string
+	CreateShortKey(context context.Context, URL string) string
 }

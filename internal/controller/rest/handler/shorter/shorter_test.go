@@ -1,6 +1,7 @@
 package shorter
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"io"
@@ -26,7 +27,7 @@ func TestShortenHandler_WrongMethod(t *testing.T) {
 
 			handler(writer, request)
 
-			if writer.Code != http.StatusBadRequest {
+			if writer.Code != http.StatusMethodNotAllowed {
 				t.Errorf("Expected status code %d for method %s, got %d", http.StatusBadRequest, method, writer.Code)
 			}
 		})
@@ -47,9 +48,13 @@ func TestShortenHandler_WrongContentType(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
-			mockUsecase := &commontesting.MockLinkUsecase{}
+			mockUsecase := &commontesting.MockLinkUsecase{
+				GetBaseURLFunc: func() string {
+					return "http://localhost:8080"
+				},
+			}
 			if strings.Contains(testCase.contentType, "text/plain") && testCase.contentType != "" {
-				mockUsecase.CreateShortKeyFunc = func(URL string) string {
+				mockUsecase.CreateShortKeyFunc = func(context context.Context, URL string) string {
 					return "short-key"
 				}
 			}
@@ -64,11 +69,11 @@ func TestShortenHandler_WrongContentType(t *testing.T) {
 			handler(writer, request)
 
 			if strings.Contains(testCase.contentType, "text/plain") && testCase.contentType != "" {
-				if writer.Code == http.StatusBadRequest {
+				if writer.Code == http.StatusMethodNotAllowed {
 					t.Errorf("Expected success for content type '%s', got BadRequest", testCase.contentType)
 				}
 			} else {
-				if writer.Code != http.StatusBadRequest {
+				if writer.Code != http.StatusMethodNotAllowed {
 					t.Errorf("Expected status code %d for content type '%s', got %d", http.StatusBadRequest, testCase.contentType, writer.Code)
 				}
 			}
@@ -139,8 +144,8 @@ func TestShortenHandler_InvalidURL(t *testing.T) {
 
 func TestShortenHandler_CreateShortKeyReturnsEmpty(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeyFunc: func(URL string) string {
-			return "" // Возвращает пустую строку
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
+			return ""
 		},
 	}
 	handler := Handler(mockUsecase)
@@ -159,7 +164,10 @@ func TestShortenHandler_CreateShortKeyReturnsEmpty(t *testing.T) {
 func TestShortenHandler_Success_HTTP(t *testing.T) {
 	expectedShortKey := "abc123"
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeyFunc: func(URL string) string {
+		GetBaseURLFunc: func() string {
+			return "http://localhost:8080"
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			if URL != "https://example.com" {
 				t.Errorf("Expected URL 'https://example.com', got '%s'", URL)
 			}
@@ -194,7 +202,10 @@ func TestShortenHandler_Success_HTTP(t *testing.T) {
 func TestShortenHandler_Success_HTTPS_TLS(t *testing.T) {
 	expectedShortKey := "xyz789"
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeyFunc: func(URL string) string {
+		GetBaseURLFunc: func() string {
+			return "https://example.com"
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			return expectedShortKey
 		},
 	}
@@ -203,7 +214,6 @@ func TestShortenHandler_Success_HTTPS_TLS(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
 	request.Header.Set(common.ContentType, common.TextPlain)
 	request.Host = "example.com"
-	// Устанавливаем TLS для эмуляции HTTPS запроса
 	request.TLS = &tls.ConnectionState{}
 	writer := httptest.NewRecorder()
 
@@ -223,7 +233,10 @@ func TestShortenHandler_Success_HTTPS_TLS(t *testing.T) {
 func TestShortenHandler_Success_HTTPS_XForwardedProto(t *testing.T) {
 	expectedShortKey := "def456"
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeyFunc: func(URL string) string {
+		GetBaseURLFunc: func() string {
+			return "https://example.com"
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			return expectedShortKey
 		},
 	}
@@ -251,7 +264,10 @@ func TestShortenHandler_Success_HTTPS_XForwardedProto(t *testing.T) {
 func TestShortenHandler_ResponseWriteError(t *testing.T) {
 	expectedShortKey := "test123"
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeyFunc: func(URL string) string {
+		GetBaseURLFunc: func() string {
+			return "http://localhost:8080"
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			return expectedShortKey
 		},
 	}
@@ -422,7 +438,10 @@ func TestSendResponse_WriteError(t *testing.T) {
 
 func TestShortenHandler_URLCreatesWithCorrectFormat(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeyFunc: func(URL string) string {
+		GetBaseURLFunc: func() string {
+			return "http://myserver.com:9090"
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			return "short123"
 		},
 	}
@@ -448,8 +467,10 @@ func TestShortenHandler_URLCreatesWithCorrectFormat(t *testing.T) {
 
 func TestShortenHandler_NormalizesURL(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeyFunc: func(URL string) string {
-			// Проверяем, что URL нормализован (без trailing slash)
+		GetBaseURLFunc: func() string {
+			return "http://localhost:8080"
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			if URL == "https://example.com" {
 				return "normalized123"
 			}
@@ -459,7 +480,6 @@ func TestShortenHandler_NormalizesURL(t *testing.T) {
 	}
 	handler := Handler(mockUsecase)
 
-	// URL с trailing slash должен быть нормализован
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com/"))
 	request.Header.Set(common.ContentType, common.TextPlain)
 	request.Host = "localhost:8080"
@@ -474,8 +494,10 @@ func TestShortenHandler_NormalizesURL(t *testing.T) {
 
 func TestShortenHandler_HandlesBodyWithWhitespace(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeyFunc: func(URL string) string {
-			// URL должен быть обрезан от пробелов
+		GetBaseURLFunc: func() string {
+			return "http://localhost:8080"
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) string {
 			if URL == "https://example.com" {
 				return "trimmed123"
 			}

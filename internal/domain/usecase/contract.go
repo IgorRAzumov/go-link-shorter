@@ -1,6 +1,9 @@
 package usecase
 
+import "context"
+
 type LinkUsecase interface {
-	GetFullURLByShorKey(shortKey string) (string, error)
-	CreateShortKey(URL string) string
+	GetFullURLByShorKey(context context.Context, shortKey string) (string, error)
+	CreateShortKey(context context.Context, URL string) string
+	GetBaseURL() string
 }
