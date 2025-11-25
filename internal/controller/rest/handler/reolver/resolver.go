@@ -11,12 +11,8 @@ import (
 func Handler(usecase usecase.LinkUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		shortKey := chi.URLParam(request, "shortKey")
-		if shortKey == "" {
-			common.BadRequestError(writer, nil)
-			return
-		}
-
-		fullLink, err := usecase.GetFullURLByShorKey(shortKey)
+		context := request.Context()
+		fullLink, err := usecase.GetFullURLByShorKey(context, shortKey)
 		if err != nil || fullLink == "" {
 			common.BadRequestError(writer, err)
 			return
