@@ -3,6 +3,7 @@ package shorter
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 	commontesting "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common/testing"
+	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter/model"
 )
 
 func TestShortenHandler_WrongMethod(t *testing.T) {
@@ -54,8 +56,8 @@ func TestShortenHandler_WrongContentType(t *testing.T) {
 				},
 			}
 			if strings.Contains(testCase.contentType, "text/plain") && testCase.contentType != "" {
-				mockUsecase.CreateShortKeyFunc = func(context context.Context, URL string) string {
-					return "short-key"
+				mockUsecase.CreateShortKeyFunc = func(context context.Context, URL string) (string, error) {
+					return "short-key", nil
 				}
 			}
 			handler := Handler(mockUsecase)
@@ -142,10 +144,10 @@ func TestShortenHandler_InvalidURL(t *testing.T) {
 	}
 }
 
-func TestShortenHandler_CreateShortKeyReturnsEmpty(t *testing.T) {
+func TestShortenHandler_CreateShortKeyReturnsError(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeyFunc: func(context context.Context, URL string) string {
-			return ""
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			return "", errors.New("CreateShortKey error")
 		},
 	}
 	handler := Handler(mockUsecase)
@@ -167,11 +169,11 @@ func TestShortenHandler_Success_HTTP(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) string {
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
 			if URL != "https://example.com" {
 				t.Errorf("Expected URL 'https://example.com', got '%s'", URL)
 			}
-			return expectedShortKey
+			return expectedShortKey, nil
 		},
 	}
 	handler := Handler(mockUsecase)
@@ -199,14 +201,106 @@ func TestShortenHandler_Success_HTTP(t *testing.T) {
 	}
 }
 
+func TestShortenHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
+	expectedShortKey := "xyz789"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		GetBaseURLFunc: func() string {
+			return ""
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			return expectedShortKey, nil
+		},
+	}
+	handler := Handler(mockUsecase)
+
+	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
+	request.Header.Set(common.ContentType, common.TextPlain)
+	request.Host = "localhost:8080"
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusCreated {
+		t.Errorf("Expected status code %d, got %d", http.StatusCreated, writer.Code)
+	}
+
+	expectedURL := "http://localhost:8080/" + expectedShortKey
+	body := writer.Body.String()
+	if body != expectedURL {
+		t.Errorf("Expected body '%s', got '%s'", expectedURL, body)
+	}
+}
+
+func TestShortenHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
+	expectedShortKey := "def456"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		GetBaseURLFunc: func() string {
+			return ""
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			return expectedShortKey, nil
+		},
+	}
+	handler := Handler(mockUsecase)
+
+	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
+	request.Header.Set(common.ContentType, common.TextPlain)
+	request.Host = "example.com"
+	request.TLS = &tls.ConnectionState{}
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusCreated {
+		t.Errorf("Expected status code %d, got %d", http.StatusCreated, writer.Code)
+	}
+
+	expectedURL := "https://example.com/" + expectedShortKey
+	body := writer.Body.String()
+	if body != expectedURL {
+		t.Errorf("Expected body '%s', got '%s'", expectedURL, body)
+	}
+}
+
+func TestShortenHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.T) {
+	expectedShortKey := "ghi789"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		GetBaseURLFunc: func() string {
+			return ""
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			return expectedShortKey, nil
+		},
+	}
+	handler := Handler(mockUsecase)
+
+	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
+	request.Header.Set(common.ContentType, common.TextPlain)
+	request.Header.Set("X-Forwarded-Proto", "https")
+	request.Host = "example.com"
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusCreated {
+		t.Errorf("Expected status code %d, got %d", http.StatusCreated, writer.Code)
+	}
+
+	expectedURL := "https://example.com/" + expectedShortKey
+	body := writer.Body.String()
+	if body != expectedURL {
+		t.Errorf("Expected body '%s', got '%s'", expectedURL, body)
+	}
+}
+
 func TestShortenHandler_Success_HTTPS_TLS(t *testing.T) {
 	expectedShortKey := "xyz789"
 	mockUsecase := &commontesting.MockLinkUsecase{
 		GetBaseURLFunc: func() string {
 			return "https://example.com"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) string {
-			return expectedShortKey
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			return expectedShortKey, nil
 		},
 	}
 	handler := Handler(mockUsecase)
@@ -236,8 +330,8 @@ func TestShortenHandler_Success_HTTPS_XForwardedProto(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "https://example.com"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) string {
-			return expectedShortKey
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			return expectedShortKey, nil
 		},
 	}
 	handler := Handler(mockUsecase)
@@ -267,8 +361,8 @@ func TestShortenHandler_ResponseWriteError(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) string {
-			return expectedShortKey
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			return expectedShortKey, nil
 		},
 	}
 	handler := Handler(mockUsecase)
@@ -441,8 +535,8 @@ func TestShortenHandler_URLCreatesWithCorrectFormat(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://myserver.com:9090"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) string {
-			return "short123"
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			return "short123", nil
 		},
 	}
 	handler := Handler(mockUsecase)
@@ -470,12 +564,12 @@ func TestShortenHandler_NormalizesURL(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) string {
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
 			if URL == "https://example.com" {
-				return "normalized123"
+				return "normalized123", nil
 			}
 			t.Errorf("Expected normalized URL 'https://example.com', got '%s'", URL)
-			return "error"
+			return "error", nil
 		},
 	}
 	handler := Handler(mockUsecase)
@@ -497,11 +591,11 @@ func TestShortenHandler_HandlesBodyWithWhitespace(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) string {
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
 			if URL == "https://example.com" {
-				return "trimmed123"
+				return "trimmed123", nil
 			}
-			return "error"
+			return "error", nil
 		},
 	}
 	handler := Handler(mockUsecase)
@@ -568,4 +662,469 @@ func (w *errorResponseWriter) Write(p []byte) (n int, err error) {
 func (w *errorResponseWriter) WriteHeader(statusCode int) {
 	w.statusCode = statusCode
 	w.ResponseRecorder.WriteHeader(statusCode)
+}
+
+// Tests for ApiHandler
+
+func TestApiHandler_WrongContentType(t *testing.T) {
+	testCases := []struct {
+		contentType string
+		description string
+	}{
+		{"text/plain", "text/plain content type"},
+		{"text/html", "HTML content type"},
+		{"application/xml", "XML content type"},
+		{"", "Empty content type"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.description, func(t *testing.T) {
+			mockUsecase := &commontesting.MockLinkUsecase{}
+			handler := ApiHandler(mockUsecase)
+
+			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
+			if testCase.contentType != "" {
+				request.Header.Set(common.ContentType, testCase.contentType)
+			}
+			writer := httptest.NewRecorder()
+
+			handler(writer, request)
+
+			if writer.Code != http.StatusMethodNotAllowed {
+				t.Errorf("Expected status code %d for content type '%s', got %d", http.StatusMethodNotAllowed, testCase.contentType, writer.Code)
+			}
+		})
+	}
+}
+
+func TestApiHandler_InvalidJSON(t *testing.T) {
+	testCases := []struct {
+		body        string
+		description string
+	}{
+		{"invalid json", "Invalid JSON format"},
+		{"{url:}", "Invalid JSON syntax"},
+		{"", "Empty body"},
+		{"{", "Incomplete JSON"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.description, func(t *testing.T) {
+			mockUsecase := &commontesting.MockLinkUsecase{}
+			handler := ApiHandler(mockUsecase)
+
+			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(testCase.body))
+			request.Header.Set(common.ContentType, common.ApplicationJson)
+			writer := httptest.NewRecorder()
+
+			handler(writer, request)
+
+			if writer.Code != http.StatusBadRequest {
+				t.Errorf("Expected status code %d for body '%s', got %d", http.StatusBadRequest, testCase.body, writer.Code)
+			}
+		})
+	}
+}
+
+func TestApiHandler_InvalidURL(t *testing.T) {
+	testCases := []struct {
+		body        string
+		description string
+	}{
+		{`{"url":"not-a-url"}`, "Invalid URL format"},
+		{`{"url":"://example.com"}`, "Missing scheme and host"},
+		{`{"url":"http://"}`, "Missing host"},
+		{`{"url":""}`, "Empty URL"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.description, func(t *testing.T) {
+			mockUsecase := &commontesting.MockLinkUsecase{}
+			handler := ApiHandler(mockUsecase)
+
+			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(testCase.body))
+			request.Header.Set(common.ContentType, common.ApplicationJson)
+			writer := httptest.NewRecorder()
+
+			handler(writer, request)
+
+			if writer.Code != http.StatusBadRequest {
+				t.Errorf("Expected status code %d for body '%s', got %d", http.StatusBadRequest, testCase.body, writer.Code)
+			}
+		})
+	}
+}
+
+func TestApiHandler_CreateShortKeyReturnsError(t *testing.T) {
+	mockUsecase := &commontesting.MockLinkUsecase{
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			return "", errors.New("CreateShortKey error")
+		},
+	}
+	handler := ApiHandler(mockUsecase)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
+	request.Header.Set(common.ContentType, common.ApplicationJson)
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusBadRequest {
+		t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, writer.Code)
+	}
+}
+
+func TestApiHandler_Success_WithBaseURL(t *testing.T) {
+	expectedShortKey := "abc123"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		GetBaseURLFunc: func() string {
+			return "http://localhost:8080"
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			if URL != "https://example.com" {
+				t.Errorf("Expected URL 'https://example.com', got '%s'", URL)
+			}
+			return expectedShortKey, nil
+		},
+	}
+	handler := ApiHandler(mockUsecase)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
+	request.Header.Set(common.ContentType, common.ApplicationJson)
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusCreated {
+		t.Errorf("Expected status code %d, got %d", http.StatusCreated, writer.Code)
+	}
+
+	expectedResult := "http://localhost:8080/abc123"
+	var response model.ShortenResponse
+	if err := json.Unmarshal(writer.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	if response.Result != expectedResult {
+		t.Errorf("Expected result '%s', got '%s'", expectedResult, response.Result)
+	}
+
+	contentType := writer.Header().Get(common.ContentType)
+	if contentType != common.ApplicationJson {
+		t.Errorf("Expected Content-Type '%s', got '%s'", common.ApplicationJson, contentType)
+	}
+}
+
+func TestApiHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
+	expectedShortKey := "xyz789"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		GetBaseURLFunc: func() string {
+			return ""
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			return expectedShortKey, nil
+		},
+	}
+	handler := ApiHandler(mockUsecase)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
+	request.Header.Set(common.ContentType, common.ApplicationJson)
+	request.Host = "localhost:8080"
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusCreated {
+		t.Errorf("Expected status code %d, got %d", http.StatusCreated, writer.Code)
+	}
+
+	expectedResult := "http://localhost:8080/xyz789"
+	var response model.ShortenResponse
+	if err := json.Unmarshal(writer.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	if response.Result != expectedResult {
+		t.Errorf("Expected result '%s', got '%s'", expectedResult, response.Result)
+	}
+}
+
+func TestApiHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
+	expectedShortKey := "def456"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		GetBaseURLFunc: func() string {
+			return ""
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			return expectedShortKey, nil
+		},
+	}
+	handler := ApiHandler(mockUsecase)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
+	request.Header.Set(common.ContentType, common.ApplicationJson)
+	request.Host = "example.com"
+	request.TLS = &tls.ConnectionState{}
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusCreated {
+		t.Errorf("Expected status code %d, got %d", http.StatusCreated, writer.Code)
+	}
+
+	expectedResult := "https://example.com/def456"
+	var response model.ShortenResponse
+	if err := json.Unmarshal(writer.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	if response.Result != expectedResult {
+		t.Errorf("Expected result '%s', got '%s'", expectedResult, response.Result)
+	}
+}
+
+func TestApiHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.T) {
+	expectedShortKey := "ghi789"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		GetBaseURLFunc: func() string {
+			return ""
+		},
+		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+			return expectedShortKey, nil
+		},
+	}
+	handler := ApiHandler(mockUsecase)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
+	request.Header.Set(common.ContentType, common.ApplicationJson)
+	request.Header.Set("X-Forwarded-Proto", "https")
+	request.Host = "example.com"
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusCreated {
+		t.Errorf("Expected status code %d, got %d", http.StatusCreated, writer.Code)
+	}
+
+	expectedResult := "https://example.com/ghi789"
+	var response model.ShortenResponse
+	if err := json.Unmarshal(writer.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	if response.Result != expectedResult {
+		t.Errorf("Expected result '%s', got '%s'", expectedResult, response.Result)
+	}
+}
+
+// Tests for GenerateShortenURL
+
+func TestGenerateShortenURL_WithBaseURL(t *testing.T) {
+	baseURL := "http://localhost:8080"
+	shortKey := "abc123"
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	result := GenerateShortenURL(baseURL, shortKey, request)
+
+	expected := "http://localhost:8080/abc123"
+	if result != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, result)
+	}
+}
+
+func TestGenerateShortenURL_WithoutBaseURL_HTTP(t *testing.T) {
+	baseURL := ""
+	shortKey := "xyz789"
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Host = "example.com"
+
+	result := GenerateShortenURL(baseURL, shortKey, request)
+
+	expected := "http://example.com/xyz789"
+	if result != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, result)
+	}
+}
+
+func TestGenerateShortenURL_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
+	baseURL := ""
+	shortKey := "def456"
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Host = "example.com"
+	request.TLS = &tls.ConnectionState{}
+
+	result := GenerateShortenURL(baseURL, shortKey, request)
+
+	expected := "https://example.com/def456"
+	if result != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, result)
+	}
+}
+
+func TestGenerateShortenURL_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.T) {
+	baseURL := ""
+	shortKey := "ghi789"
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Host = "example.com"
+	request.Header.Set("X-Forwarded-Proto", "https")
+
+	result := GenerateShortenURL(baseURL, shortKey, request)
+
+	expected := "https://example.com/ghi789"
+	if result != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, result)
+	}
+}
+
+func TestGenerateShortenURL_WithoutBaseURL_HTTP_WhenXForwardedProtoIsHTTP(t *testing.T) {
+	baseURL := ""
+	shortKey := "jkl012"
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Host = "example.com"
+	request.Header.Set("X-Forwarded-Proto", "http")
+
+	result := GenerateShortenURL(baseURL, shortKey, request)
+
+	expected := "http://example.com/jkl012"
+	if result != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, result)
+	}
+}
+
+// Tests for GenerateShortKey
+
+func TestGenerateShortKey_Success(t *testing.T) {
+	body := "https://example.com"
+	expectedShortKey := "abc123"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
+			if URL != "https://example.com" {
+				t.Errorf("Expected URL 'https://example.com', got '%s'", URL)
+			}
+			return expectedShortKey, nil
+		},
+	}
+	writer := httptest.NewRecorder()
+	ctx := context.Background()
+
+	shortKey, err := GenerateShortKey(body, ctx, writer, mockUsecase)
+
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if shortKey != expectedShortKey {
+		t.Errorf("Expected shortKey '%s', got '%s'", expectedShortKey, shortKey)
+	}
+	if writer.Code != 0 {
+		t.Errorf("Expected no error status code, got %d", writer.Code)
+	}
+}
+
+func TestGenerateShortKey_InvalidURL(t *testing.T) {
+	body := "not-a-url"
+	mockUsecase := &commontesting.MockLinkUsecase{}
+	writer := httptest.NewRecorder()
+	ctx := context.Background()
+
+	shortKey, err := GenerateShortKey(body, ctx, writer, mockUsecase)
+
+	if err == nil {
+		t.Error("Expected error for invalid URL, got nil")
+	}
+	if shortKey != "" {
+		t.Errorf("Expected empty shortKey, got '%s'", shortKey)
+	}
+	if writer.Code != http.StatusBadRequest {
+		t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, writer.Code)
+	}
+}
+
+func TestGenerateShortKey_EmptyURL(t *testing.T) {
+	body := ""
+	mockUsecase := &commontesting.MockLinkUsecase{}
+	writer := httptest.NewRecorder()
+	ctx := context.Background()
+
+	shortKey, err := GenerateShortKey(body, ctx, writer, mockUsecase)
+
+	if err == nil {
+		t.Error("Expected error for empty URL, got nil")
+	}
+	if shortKey != "" {
+		t.Errorf("Expected empty shortKey, got '%s'", shortKey)
+	}
+	if writer.Code != http.StatusBadRequest {
+		t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, writer.Code)
+	}
+}
+
+func TestGenerateShortKey_CreateShortKeyError(t *testing.T) {
+	body := "https://example.com"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
+			return "", errors.New("CreateShortKey error")
+		},
+	}
+	writer := httptest.NewRecorder()
+	ctx := context.Background()
+
+	shortKey, err := GenerateShortKey(body, ctx, writer, mockUsecase)
+
+	if err == nil {
+		t.Error("Expected error from CreateShortKey, got nil")
+	}
+	if shortKey != "" {
+		t.Errorf("Expected empty shortKey, got '%s'", shortKey)
+	}
+	if writer.Code != http.StatusBadRequest {
+		t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, writer.Code)
+	}
+}
+
+func TestGenerateShortKey_NormalizesURL(t *testing.T) {
+	body := "https://example.com/"
+	expectedShortKey := "normalized123"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
+			// URL должен быть нормализован (без trailing slash)
+			if URL != "https://example.com" {
+				t.Errorf("Expected normalized URL 'https://example.com', got '%s'", URL)
+			}
+			return expectedShortKey, nil
+		},
+	}
+	writer := httptest.NewRecorder()
+	ctx := context.Background()
+
+	shortKey, err := GenerateShortKey(body, ctx, writer, mockUsecase)
+
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if shortKey != expectedShortKey {
+		t.Errorf("Expected shortKey '%s', got '%s'", expectedShortKey, shortKey)
+	}
+}
+
+func TestGenerateShortKey_TrimsWhitespace(t *testing.T) {
+	body := "  https://example.com  \n"
+	expectedShortKey := "trimmed123"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
+			// URL должен быть нормализован (без пробелов и trailing slash)
+			if URL != "https://example.com" {
+				t.Errorf("Expected normalized URL 'https://example.com', got '%s'", URL)
+			}
+			return expectedShortKey, nil
+		},
+	}
+	writer := httptest.NewRecorder()
+	ctx := context.Background()
+
+	shortKey, err := GenerateShortKey(body, ctx, writer, mockUsecase)
+
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if shortKey != expectedShortKey {
+		t.Errorf("Expected shortKey '%s', got '%s'", expectedShortKey, shortKey)
+	}
 }

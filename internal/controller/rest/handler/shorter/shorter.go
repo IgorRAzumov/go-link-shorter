@@ -25,29 +25,12 @@ func Handler(usecase usecase.LinkUsecase) http.HandlerFunc {
 			return
 		}
 
-		originalURL, err := parseURL(string(body))
+		shortKey, err := GenerateShortKey(string(body), request.Context(), writer, usecase)
 		if err != nil {
-			common.BadRequestError(writer, err)
 			return
 		}
 
-		context := request.Context()
-		shortKey := usecase.CreateShortKey(context, originalURL.String())
-		if shortKey == "" {
-			common.BadRequestError(writer, err)
-			return
-		}
-
-		baseURL := usecase.GetBaseURL()
-		if baseURL != "" {
-			sendResponse(writer, baseURL+"/"+shortKey)
-		} else {
-			scheme := "http"
-			if request.TLS != nil || request.Header.Get("X-Forwarded-Proto") == "https" {
-				scheme = "https"
-			}
-			sendResponse(writer, scheme+"://"+request.Host+"/"+shortKey)
-		}
+		sendResponse(writer, GenerateShortenURL(usecase.GetBaseURL(), shortKey, request))
 	}
 }
 
