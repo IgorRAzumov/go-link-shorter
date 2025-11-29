@@ -10,7 +10,7 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
 
-func ApiHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
+func APIHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if request.Header.Get(common.ContentType) != common.ApplicationJson {
 			common.MethodNotAllowedError(writer)

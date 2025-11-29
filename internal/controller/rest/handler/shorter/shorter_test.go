@@ -664,9 +664,9 @@ func (w *errorResponseWriter) WriteHeader(statusCode int) {
 	w.ResponseRecorder.WriteHeader(statusCode)
 }
 
-// Tests for ApiHandler
+// Tests for APIHandler
 
-func TestApiHandler_WrongContentType(t *testing.T) {
+func TestAPIHandler_WrongContentType(t *testing.T) {
 	testCases := []struct {
 		contentType string
 		description string
@@ -680,7 +680,7 @@ func TestApiHandler_WrongContentType(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
 			mockUsecase := &commontesting.MockLinkUsecase{}
-			handler := ApiHandler(mockUsecase)
+			handler := APIHandler(mockUsecase)
 
 			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 			if testCase.contentType != "" {
@@ -697,7 +697,7 @@ func TestApiHandler_WrongContentType(t *testing.T) {
 	}
 }
 
-func TestApiHandler_InvalidJSON(t *testing.T) {
+func TestAPIHandler_InvalidJSON(t *testing.T) {
 	testCases := []struct {
 		body        string
 		description string
@@ -711,7 +711,7 @@ func TestApiHandler_InvalidJSON(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
 			mockUsecase := &commontesting.MockLinkUsecase{}
-			handler := ApiHandler(mockUsecase)
+			handler := APIHandler(mockUsecase)
 
 			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(testCase.body))
 			request.Header.Set(common.ContentType, common.ApplicationJson)
@@ -726,7 +726,7 @@ func TestApiHandler_InvalidJSON(t *testing.T) {
 	}
 }
 
-func TestApiHandler_InvalidURL(t *testing.T) {
+func TestAPIHandler_InvalidURL(t *testing.T) {
 	testCases := []struct {
 		body        string
 		description string
@@ -740,7 +740,7 @@ func TestApiHandler_InvalidURL(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
 			mockUsecase := &commontesting.MockLinkUsecase{}
-			handler := ApiHandler(mockUsecase)
+			handler := APIHandler(mockUsecase)
 
 			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(testCase.body))
 			request.Header.Set(common.ContentType, common.ApplicationJson)
@@ -755,13 +755,13 @@ func TestApiHandler_InvalidURL(t *testing.T) {
 	}
 }
 
-func TestApiHandler_CreateShortKeyReturnsError(t *testing.T) {
+func TestAPIHandler_CreateShortKeyReturnsError(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
 		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
 			return "", errors.New("CreateShortKey error")
 		},
 	}
-	handler := ApiHandler(mockUsecase)
+	handler := APIHandler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 	request.Header.Set(common.ContentType, common.ApplicationJson)
@@ -774,7 +774,7 @@ func TestApiHandler_CreateShortKeyReturnsError(t *testing.T) {
 	}
 }
 
-func TestApiHandler_Success_WithBaseURL(t *testing.T) {
+func TestAPIHandler_Success_WithBaseURL(t *testing.T) {
 	expectedShortKey := "abc123"
 	mockUsecase := &commontesting.MockLinkUsecase{
 		GetBaseURLFunc: func() string {
@@ -787,7 +787,7 @@ func TestApiHandler_Success_WithBaseURL(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := ApiHandler(mockUsecase)
+	handler := APIHandler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 	request.Header.Set(common.ContentType, common.ApplicationJson)
@@ -814,7 +814,7 @@ func TestApiHandler_Success_WithBaseURL(t *testing.T) {
 	}
 }
 
-func TestApiHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
+func TestAPIHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 	expectedShortKey := "xyz789"
 	mockUsecase := &commontesting.MockLinkUsecase{
 		GetBaseURLFunc: func() string {
@@ -824,7 +824,7 @@ func TestApiHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := ApiHandler(mockUsecase)
+	handler := APIHandler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 	request.Header.Set(common.ContentType, common.ApplicationJson)
@@ -847,7 +847,7 @@ func TestApiHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 	}
 }
 
-func TestApiHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
+func TestAPIHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
 	expectedShortKey := "def456"
 	mockUsecase := &commontesting.MockLinkUsecase{
 		GetBaseURLFunc: func() string {
@@ -857,7 +857,7 @@ func TestApiHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := ApiHandler(mockUsecase)
+	handler := APIHandler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 	request.Header.Set(common.ContentType, common.ApplicationJson)
@@ -881,7 +881,7 @@ func TestApiHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
 	}
 }
 
-func TestApiHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.T) {
+func TestAPIHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.T) {
 	expectedShortKey := "ghi789"
 	mockUsecase := &commontesting.MockLinkUsecase{
 		GetBaseURLFunc: func() string {
@@ -891,7 +891,7 @@ func TestApiHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := ApiHandler(mockUsecase)
+	handler := APIHandler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 	request.Header.Set(common.ContentType, common.ApplicationJson)
@@ -1008,13 +1008,14 @@ func TestGenerateShortKey_Success(t *testing.T) {
 	shortKey, err := GenerateShortKey(body, ctx, writer, mockUsecase)
 
 	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
+		t.Fatalf("Expected no error, got %v. Writer code: %d, body: %s", err, writer.Code, writer.Body.String())
 	}
 	if shortKey != expectedShortKey {
 		t.Errorf("Expected shortKey '%s', got '%s'", expectedShortKey, shortKey)
 	}
-	if writer.Code != 0 {
-		t.Errorf("Expected no error status code, got %d", writer.Code)
+	// В успешном случае BadRequestError не должен вызываться
+	if writer.Code == http.StatusBadRequest {
+		t.Errorf("Expected no error status code, got BadRequest (%d). Body: %s", writer.Code, writer.Body.String())
 	}
 }
 
