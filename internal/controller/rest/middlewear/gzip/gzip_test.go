@@ -411,10 +411,7 @@ func TestCompressReader_Read(t *testing.T) {
 		t.Fatalf("Failed to create compressReader: %v", compressReaderError)
 	}
 	defer func() {
-		err := compressReader.Close()
-		if err != nil {
-
-		}
+		_ = compressReader.Close()
 	}()
 
 	decompressedData, readError := io.ReadAll(compressReader)
