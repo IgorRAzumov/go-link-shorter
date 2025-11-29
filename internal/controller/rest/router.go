@@ -14,7 +14,7 @@ import (
 func NewRouter(usecase *link.Usecase) http.Handler {
 	router := chi.NewRouter()
 
-	router.Use(middleware.HTTPLogger, gzip.GZIPMiddllear)
+	router.Use(middleware.HTTPLogger, gzip.GZIP)
 	router.Post("/", shorter.Handler(usecase))
 	router.Post("/api/shorten", shorter.APIHandler(usecase))
 	router.Get("/{shortKey}", reolver.Handler(usecase))

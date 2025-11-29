@@ -4,6 +4,9 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
+	"strings"
+
+	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 )
 
 const (
@@ -70,4 +73,51 @@ func (compressReader *compressReader) Close() error {
 		return err
 	}
 	return compressReader.GZIPReader.Close()
+}
+
+type responseWriterWrapper struct {
+	http.ResponseWriter
+	request        *http.Request
+	compressWriter *compressWriter
+	headerWritten  bool
+	statusCode     int
+}
+
+func (writerWrapper *responseWriterWrapper) Header() http.Header {
+	return writerWrapper.ResponseWriter.Header()
+}
+
+func (writerWrapper *responseWriterWrapper) WriteHeader(statusCode int) {
+	if writerWrapper.headerWritten {
+		return
+	}
+	writerWrapper.headerWritten = true
+	writerWrapper.statusCode = statusCode
+
+	contentType := writerWrapper.Header().Get(common.ContentType)
+	if (contentType == common.ApplicationJSON || contentType == common.TextHTML) &&
+		strings.Contains(writerWrapper.request.Header.Get(AcceptEncoding), HeaderCode) {
+		writerWrapper.compressWriter = newCompressWriter(writerWrapper.ResponseWriter)
+		writerWrapper.compressWriter.WriteHeader(statusCode)
+	} else {
+		writerWrapper.ResponseWriter.WriteHeader(statusCode)
+	}
+}
+
+func (writerWrapper *responseWriterWrapper) Write(data []byte) (int, error) {
+	if !writerWrapper.headerWritten {
+		writerWrapper.WriteHeader(http.StatusOK)
+	}
+
+	if writerWrapper.compressWriter != nil {
+		return writerWrapper.compressWriter.Write(data)
+	}
+	return writerWrapper.ResponseWriter.Write(data)
+}
+
+func (writerWrapper *responseWriterWrapper) Close() error {
+	if writerWrapper.compressWriter != nil {
+		return writerWrapper.compressWriter.Close()
+	}
+	return nil
 }
