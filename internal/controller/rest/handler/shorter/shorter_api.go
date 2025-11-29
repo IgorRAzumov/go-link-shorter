@@ -12,7 +12,7 @@ import (
 
 func APIHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		if request.Header.Get(common.ContentType) != common.ApplicationJson {
+		if request.Header.Get(common.ContentType) != common.ApplicationJSON {
 			common.MethodNotAllowedError(writer)
 			return
 		}
@@ -41,7 +41,7 @@ func APIHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
 			return
 		}
 
-		writer.Header().Set(common.ContentType, common.ApplicationJson)
+		writer.Header().Set(common.ContentType, common.ApplicationJSON)
 		writer.WriteHeader(http.StatusCreated)
 		_, writeError := writer.Write(bytes)
 		if writeError != nil {

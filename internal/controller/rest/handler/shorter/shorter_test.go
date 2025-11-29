@@ -714,7 +714,7 @@ func TestAPIHandler_InvalidJSON(t *testing.T) {
 			handler := APIHandler(mockUsecase)
 
 			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(testCase.body))
-			request.Header.Set(common.ContentType, common.ApplicationJson)
+			request.Header.Set(common.ContentType, common.ApplicationJSON)
 			writer := httptest.NewRecorder()
 
 			handler(writer, request)
@@ -743,7 +743,7 @@ func TestAPIHandler_InvalidURL(t *testing.T) {
 			handler := APIHandler(mockUsecase)
 
 			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(testCase.body))
-			request.Header.Set(common.ContentType, common.ApplicationJson)
+			request.Header.Set(common.ContentType, common.ApplicationJSON)
 			writer := httptest.NewRecorder()
 
 			handler(writer, request)
@@ -764,7 +764,7 @@ func TestAPIHandler_CreateShortKeyReturnsError(t *testing.T) {
 	handler := APIHandler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
-	request.Header.Set(common.ContentType, common.ApplicationJson)
+	request.Header.Set(common.ContentType, common.ApplicationJSON)
 	writer := httptest.NewRecorder()
 
 	handler(writer, request)
@@ -790,7 +790,7 @@ func TestAPIHandler_Success_WithBaseURL(t *testing.T) {
 	handler := APIHandler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
-	request.Header.Set(common.ContentType, common.ApplicationJson)
+	request.Header.Set(common.ContentType, common.ApplicationJSON)
 	writer := httptest.NewRecorder()
 
 	handler(writer, request)
@@ -809,8 +809,8 @@ func TestAPIHandler_Success_WithBaseURL(t *testing.T) {
 	}
 
 	contentType := writer.Header().Get(common.ContentType)
-	if contentType != common.ApplicationJson {
-		t.Errorf("Expected Content-Type '%s', got '%s'", common.ApplicationJson, contentType)
+	if contentType != common.ApplicationJSON {
+		t.Errorf("Expected Content-Type '%s', got '%s'", common.ApplicationJSON, contentType)
 	}
 }
 
@@ -827,7 +827,7 @@ func TestAPIHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 	handler := APIHandler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
-	request.Header.Set(common.ContentType, common.ApplicationJson)
+	request.Header.Set(common.ContentType, common.ApplicationJSON)
 	request.Host = "localhost:8080"
 	writer := httptest.NewRecorder()
 
@@ -860,7 +860,7 @@ func TestAPIHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
 	handler := APIHandler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
-	request.Header.Set(common.ContentType, common.ApplicationJson)
+	request.Header.Set(common.ContentType, common.ApplicationJSON)
 	request.Host = "example.com"
 	request.TLS = &tls.ConnectionState{}
 	writer := httptest.NewRecorder()
@@ -894,7 +894,7 @@ func TestAPIHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.T) {
 	handler := APIHandler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
-	request.Header.Set(common.ContentType, common.ApplicationJson)
+	request.Header.Set(common.ContentType, common.ApplicationJSON)
 	request.Header.Set("X-Forwarded-Proto", "https")
 	request.Host = "example.com"
 	writer := httptest.NewRecorder()

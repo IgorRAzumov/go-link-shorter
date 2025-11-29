@@ -8,7 +8,7 @@ import (
 )
 
 const TextPlain = "text/plain"
-const ApplicationJson = "application/json"
+const ApplicationJSON = "application/json"
 const ContentType = "Content-Type"
 
 func BadRequestError(writer http.ResponseWriter, err error) {
