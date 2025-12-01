@@ -20,7 +20,7 @@ func Run(serverAddress, baseURL, fileStoragePath string) {
 }
 
 func initStorage(fileStoragePath string) repository.LinkRepository {
-	fileStorage, err := inmemory.NewFileStorage(fileStoragePath)
+	fileStorage, err := inmemory.NewInMemoryFileStorage(fileStoragePath)
 	if err != nil {
 		log.Fatal().Err(err).Str("file_path", fileStoragePath).Msg("Failed to initialize file storage")
 	}

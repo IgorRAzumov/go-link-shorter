@@ -15,12 +15,12 @@ import (
 func TestNewInMemoryStorage(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "test.json")
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 	}
 	if storage == nil {
-		t.Fatal("NewFileStorage returned nil")
+		t.Fatal("NewInMemoryFileStorage returned nil")
 	}
 }
 
@@ -28,13 +28,13 @@ func TestNewFileStorage(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "test-storage.json")
 
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 	}
 
 	if storage == nil {
-		t.Fatal("NewFileStorage returned nil")
+		t.Fatal("NewInMemoryFileStorage returned nil")
 	}
 }
 
@@ -42,13 +42,13 @@ func TestNewFileStorage_WithNonExistentFile(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "non-existent.json")
 
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage should not fail for non-existent file: %v", err)
+		t.Fatalf("NewInMemoryFileStorage should not fail for non-existent file: %v", err)
 	}
 
 	if storage == nil {
-		t.Fatal("NewFileStorage returned nil")
+		t.Fatal("NewInMemoryFileStorage returned nil")
 	}
 
 	if _, err := os.Stat(filePath); err == nil {
@@ -82,9 +82,9 @@ func TestNewFileStorage_WithExistingFile(t *testing.T) {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 	}
 
 	ctx := context.Background()
@@ -106,9 +106,9 @@ func TestNewFileStorage_WithExistingFile(t *testing.T) {
 func TestLinkStorage_Save(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "test.json")
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 	}
 	ctx := context.Background()
 
@@ -137,9 +137,9 @@ func TestLinkStorage_Save_WithFileStorage(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "save-test.json")
 
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 	}
 
 	ctx := context.Background()
@@ -190,9 +190,9 @@ func TestLinkStorage_Save_GeneratesUUID(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "uuid-test.json")
 
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 	}
 
 	ctx := context.Background()
@@ -230,9 +230,9 @@ func TestLinkStorage_Save_GeneratesUUID(t *testing.T) {
 func TestLinkStorage_GetByShortKey(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "test.json")
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 	}
 	ctx := context.Background()
 
@@ -280,9 +280,9 @@ func TestLinkStorage_GetByShortKey(t *testing.T) {
 func TestLinkStorage_IsExistShortKey(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "test.json")
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 	}
 	ctx := context.Background()
 
@@ -370,9 +370,9 @@ func TestLinkStorage_GetShortKeyByURL(t *testing.T) {
 		t.Run(testCase.description, func(t *testing.T) {
 			tempDir := t.TempDir()
 			testFilePath := filepath.Join(tempDir, "test.json")
-			testStorage, err := NewFileStorage(testFilePath)
+			testStorage, err := NewInMemoryFileStorage(testFilePath)
 			if err != nil {
-				t.Fatalf("NewFileStorage failed: %v", err)
+				t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 			}
 			if testCase.link != nil {
 				normalizedFullURL := common.NormalizeURL(testCase.link.FullURL)
@@ -395,9 +395,9 @@ func TestLinkStorage_GetShortKeyByURL(t *testing.T) {
 func TestLinkStorage_GetAllLinks(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "test.json")
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 	}
 	ctx := context.Background()
 
@@ -459,9 +459,9 @@ func TestLinkStorage_GetAllLinks(t *testing.T) {
 func TestLinkStorage_MultipleSaves(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "test.json")
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 	}
 	ctx := context.Background()
 
@@ -494,9 +494,9 @@ func TestLinkStorage_MultipleSaves(t *testing.T) {
 func TestLinkStorage_ConcurrentAccess(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "test.json")
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 	}
 	ctx := context.Background()
 
@@ -532,9 +532,9 @@ func TestLinkStorage_Persistence(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "persistence-test.json")
 
-	firstStorage, err := NewFileStorage(filePath)
+	firstStorage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
 	}
 
 	ctx := context.Background()
@@ -560,9 +560,9 @@ func TestLinkStorage_Persistence(t *testing.T) {
 		firstStorage.Save(ctx, domainLink)
 	}
 
-	secondStorage, err := NewFileStorage(filePath)
+	secondStorage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage failed on second initialization: %v", err)
+		t.Fatalf("NewInMemoryFileStorage failed on second initialization: %v", err)
 	}
 
 	for _, expectedLink := range testLinks {
@@ -591,9 +591,9 @@ func TestLinkStorage_EmptyFile(t *testing.T) {
 		}
 	}(file)
 
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
-		t.Fatalf("NewFileStorage should handle empty file: %v", err)
+		t.Fatalf("NewInMemoryFileStorage should handle empty file: %v", err)
 	}
 
 	ctx := context.Background()

@@ -20,11 +20,7 @@ type LinkStorage struct {
 	mu         sync.Mutex
 }
 
-func NewInMemoryStorage() *LinkStorage {
-	return &LinkStorage{}
-}
-
-func NewFileStorage(filePath string) (*LinkStorage, error) {
+func NewInMemoryFileStorage(filePath string) (*LinkStorage, error) {
 	storage := &LinkStorage{
 		filePath: filePath,
 	}
@@ -64,17 +60,7 @@ func (storage *LinkStorage) GetShortKeyByURL(context context.Context, URL string
 
 func (storage *LinkStorage) Save(context context.Context, domainLink *model.Link) {
 	link := adapter.FromDomainLink(domainLink)
-
-	existingValue, exists := storage.linksByID.Load(link.ShortKey)
-	if exists {
-		if existingLink, ok := existingValue.(*adapter.Link); ok {
-			link.UUID = existingLink.UUID
-		}
-	}
-
-	if link.UUID == "" {
-		link.UUID = generateUUID()
-	}
+	link.UUID = generateUUID()
 
 	storage.linksByID.Store(link.ShortKey, link)
 	storage.linksByURL.Store(link.FullURL, link)
