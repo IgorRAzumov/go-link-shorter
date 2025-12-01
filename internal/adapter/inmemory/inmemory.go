@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/adapter"
-	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/rs/zerolog/log"
 )
@@ -54,7 +53,7 @@ func (storage *LinkStorage) IsExistShortKey(context context.Context, shortKey st
 
 func (storage *LinkStorage) GetShortKeyByURL(context context.Context, URL string) string {
 	log.Debug().Str("url", URL).Msg("storage: GetByURL")
-	value, ok := storage.linksByURL.Load(common.NormalizeURL(URL))
+	value, ok := storage.linksByURL.Load(URL)
 	if ok {
 		if link, ok := value.(*adapter.Link); ok {
 			return link.ShortKey
@@ -78,7 +77,7 @@ func (storage *LinkStorage) Save(context context.Context, domainLink *model.Link
 	}
 
 	storage.linksByID.Store(link.ShortKey, link)
-	storage.linksByURL.Store(common.NormalizeURL(link.FullURL), link)
+	storage.linksByURL.Store(link.FullURL, link)
 
 	if err := storage.saveToFile(); err != nil {
 		log.Error().Err(err).Msg("Failed to save data to file")
@@ -123,7 +122,7 @@ func (storage *LinkStorage) loadFromFile() error {
 	for _, link := range links {
 		linkCopy := link
 		storage.linksByID.Store(linkCopy.ShortKey, &linkCopy)
-		storage.linksByURL.Store(common.NormalizeURL(linkCopy.FullURL), &linkCopy)
+		storage.linksByURL.Store(linkCopy.FullURL, &linkCopy)
 	}
 
 	log.Info().Int("count", len(links)).Str("file_path", storage.filePath).Msg("Loaded links from file")

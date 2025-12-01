@@ -31,7 +31,7 @@ func GenerateShortKey(body string, context context.Context, writer http.Response
 		return "", err
 	}
 
-	shortKey, err := usecase.CreateShortKey(context, originalURL.String())
+	shortKey, err := usecase.CreateShortKey(context, common.NormalizeURL(originalURL.String()))
 	if err != nil {
 		common.BadRequestError(writer, err)
 		return "", err
