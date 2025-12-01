@@ -58,7 +58,7 @@ func readBody(request *http.Request) ([]byte, error) {
 
 func parseURL(URL string) (*url.URL, error) {
 	log.Debug().Str("url", URL).Msg("Parsing URL")
-	parsedURL, err := url.Parse(URL)
+	parsedURL, err := url.Parse(common.NormalizeURL(URL))
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/adapter"
+	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 )
 
@@ -374,16 +375,18 @@ func TestLinkStorage_GetShortKeyByURL(t *testing.T) {
 				t.Fatalf("NewFileStorage failed: %v", err)
 			}
 			if testCase.link != nil {
+				normalizedFullURL := common.NormalizeURL(testCase.link.FullURL)
 				domainLink := &model.Link{
 					ShortKey: testCase.link.ShortKey,
-					FullURL:  testCase.link.FullURL,
+					FullURL:  normalizedFullURL,
 				}
 				testStorage.Save(ctx, domainLink)
 			}
 
-			result := testStorage.GetShortKeyByURL(ctx, testCase.url)
+			normalizedSearchURL := common.NormalizeURL(testCase.url)
+			result := testStorage.GetShortKeyByURL(ctx, normalizedSearchURL)
 			if result != testCase.expectedKey {
-				t.Errorf("Expected short key '%s', got '%s' for URL '%s'", testCase.expectedKey, result, testCase.url)
+				t.Errorf("Expected short key '%s', got '%s' for URL '%s'", testCase.expectedKey, result, normalizedSearchURL)
 			}
 		})
 	}
