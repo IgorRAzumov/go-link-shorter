@@ -102,7 +102,6 @@ func TestLinkStorage_Save(t *testing.T) {
 	ctx := context.Background()
 
 	testLink := &adapter.Link{
-		UUID:     "test-uuid-1",
 		ShortKey: "short-key-1",
 		FullURL:  "https://example.com",
 	}
@@ -135,7 +134,6 @@ func TestLinkStorage_Save_WithFileStorage(t *testing.T) {
 	ctx := context.Background()
 
 	testLink := &adapter.Link{
-		UUID:     "test-uuid-1",
 		ShortKey: "save-key",
 		FullURL:  "https://save-test.com",
 	}
@@ -231,7 +229,6 @@ func TestLinkStorage_GetByShortKey(t *testing.T) {
 		{
 			description: "Existing short key",
 			link: &adapter.Link{
-				UUID:     "test-uuid-1",
 				ShortKey: "abc123",
 				FullURL:  "https://example.com",
 			},
@@ -269,7 +266,6 @@ func TestLinkStorage_IsExistShortKey(t *testing.T) {
 	ctx := context.Background()
 
 	testLink := &adapter.Link{
-		UUID:     "test-uuid-1",
 		ShortKey: "existing-key",
 		FullURL:  "https://example.com",
 	}
@@ -326,7 +322,6 @@ func TestLinkStorage_GetShortKeyByURL(t *testing.T) {
 		{
 			description: "Existing URL",
 			link: &adapter.Link{
-				UUID:     "test-uuid-1",
 				ShortKey: "key1",
 				FullURL:  "https://example.com",
 			},
@@ -336,7 +331,6 @@ func TestLinkStorage_GetShortKeyByURL(t *testing.T) {
 		{
 			description: "URL with trailing slash",
 			link: &adapter.Link{
-				UUID:     "test-uuid-2",
 				ShortKey: "key2",
 				FullURL:  "https://example.com/",
 			},
@@ -381,17 +375,14 @@ func TestLinkStorage_GetAllLinks(t *testing.T) {
 
 	links := []*adapter.Link{
 		{
-			UUID:     "uuid-1",
 			ShortKey: "key1",
 			FullURL:  "https://example1.com",
 		},
 		{
-			UUID:     "uuid-2",
 			ShortKey: "key2",
 			FullURL:  "https://example2.com",
 		},
 		{
-			UUID:     "uuid-3",
 			ShortKey: "key3",
 			FullURL:  "https://example3.com",
 		},
@@ -437,7 +428,6 @@ func TestLinkStorage_MultipleSaves(t *testing.T) {
 	ctx := context.Background()
 
 	firstLink := &adapter.Link{
-		UUID:     "uuid-1",
 		ShortKey: "same-key",
 		FullURL:  "https://first.com",
 	}
@@ -448,7 +438,6 @@ func TestLinkStorage_MultipleSaves(t *testing.T) {
 	storage.Save(ctx, firstDomainLink)
 
 	secondLink := &adapter.Link{
-		UUID:     "uuid-2",
 		ShortKey: "same-key",
 		FullURL:  "https://second.com",
 	}
@@ -473,7 +462,6 @@ func TestLinkStorage_ConcurrentAccess(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		go func(index int) {
 			link := &adapter.Link{
-				UUID:     "uuid-concurrent",
 				ShortKey: "key-concurrent",
 				FullURL:  "https://concurrent.com",
 			}
@@ -573,7 +561,6 @@ func TestLinkStorage_EmptyFile(t *testing.T) {
 	}
 
 	testLink := &adapter.Link{
-		UUID:     "uuid-empty",
 		ShortKey: "empty-key",
 		FullURL:  "https://empty-test.com",
 	}
