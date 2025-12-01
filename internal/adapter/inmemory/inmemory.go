@@ -135,12 +135,7 @@ func (storage *LinkStorage) saveToFile() error {
 	defer storage.mu.Unlock()
 
 	allLinks := storage.getAllLinks()
-	links := make([]adapter.Link, len(allLinks))
-	for i, link := range allLinks {
-		links[i] = *link
-	}
-
-	data, marshalError := json.MarshalIndent(&links, "", "  ")
+	data, marshalError := json.MarshalIndent(allLinks, "", "  ")
 	if marshalError != nil {
 		return marshalError
 	}
@@ -149,7 +144,7 @@ func (storage *LinkStorage) saveToFile() error {
 		return writeError
 	}
 
-	log.Debug().Int("count", len(links)).Str("file_path", storage.filePath).Msg("Saved links to file")
+	log.Debug().Int("count", len(allLinks)).Str("file_path", storage.filePath).Msg("Saved links to file")
 
 	return nil
 }
