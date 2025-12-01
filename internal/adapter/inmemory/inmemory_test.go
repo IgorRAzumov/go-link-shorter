@@ -12,9 +12,14 @@ import (
 )
 
 func TestNewInMemoryStorage(t *testing.T) {
-	storage := NewInMemoryStorage()
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "test.json")
+	storage, err := NewFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewFileStorage failed: %v", err)
+	}
 	if storage == nil {
-		t.Fatal("NewInMemoryStorage returned nil")
+		t.Fatal("NewFileStorage returned nil")
 	}
 }
 
@@ -98,7 +103,12 @@ func TestNewFileStorage_WithExistingFile(t *testing.T) {
 }
 
 func TestLinkStorage_Save(t *testing.T) {
-	storage := NewInMemoryStorage()
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "test.json")
+	storage, err := NewFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewFileStorage failed: %v", err)
+	}
 	ctx := context.Background()
 
 	testLink := &adapter.Link{
@@ -217,7 +227,12 @@ func TestLinkStorage_Save_GeneratesUUID(t *testing.T) {
 }
 
 func TestLinkStorage_GetByShortKey(t *testing.T) {
-	storage := NewInMemoryStorage()
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "test.json")
+	storage, err := NewFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewFileStorage failed: %v", err)
+	}
 	ctx := context.Background()
 
 	testCases := []struct {
@@ -262,7 +277,12 @@ func TestLinkStorage_GetByShortKey(t *testing.T) {
 }
 
 func TestLinkStorage_IsExistShortKey(t *testing.T) {
-	storage := NewInMemoryStorage()
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "test.json")
+	storage, err := NewFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewFileStorage failed: %v", err)
+	}
 	ctx := context.Background()
 
 	testLink := &adapter.Link{
@@ -309,7 +329,6 @@ func TestLinkStorage_IsExistShortKey(t *testing.T) {
 }
 
 func TestLinkStorage_GetShortKeyByURL(t *testing.T) {
-	storage := NewInMemoryStorage()
 	ctx := context.Background()
 
 	testCases := []struct {
@@ -348,15 +367,21 @@ func TestLinkStorage_GetShortKeyByURL(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
+			tempDir := t.TempDir()
+			testFilePath := filepath.Join(tempDir, "test.json")
+			testStorage, err := NewFileStorage(testFilePath)
+			if err != nil {
+				t.Fatalf("NewFileStorage failed: %v", err)
+			}
 			if testCase.link != nil {
 				domainLink := &model.Link{
 					ShortKey: testCase.link.ShortKey,
 					FullURL:  testCase.link.FullURL,
 				}
-				storage.Save(ctx, domainLink)
+				testStorage.Save(ctx, domainLink)
 			}
 
-			result := storage.GetShortKeyByURL(ctx, testCase.url)
+			result := testStorage.GetShortKeyByURL(ctx, testCase.url)
 			if result != testCase.expectedKey {
 				t.Errorf("Expected short key '%s', got '%s' for URL '%s'", testCase.expectedKey, result, testCase.url)
 			}
@@ -365,7 +390,12 @@ func TestLinkStorage_GetShortKeyByURL(t *testing.T) {
 }
 
 func TestLinkStorage_GetAllLinks(t *testing.T) {
-	storage := NewInMemoryStorage()
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "test.json")
+	storage, err := NewFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewFileStorage failed: %v", err)
+	}
 	ctx := context.Background()
 
 	allLinks := storage.getAllLinks()
@@ -424,7 +454,12 @@ func TestLinkStorage_GetAllLinks(t *testing.T) {
 }
 
 func TestLinkStorage_MultipleSaves(t *testing.T) {
-	storage := NewInMemoryStorage()
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "test.json")
+	storage, err := NewFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewFileStorage failed: %v", err)
+	}
 	ctx := context.Background()
 
 	firstLink := &adapter.Link{
@@ -454,7 +489,12 @@ func TestLinkStorage_MultipleSaves(t *testing.T) {
 }
 
 func TestLinkStorage_ConcurrentAccess(t *testing.T) {
-	storage := NewInMemoryStorage()
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "test.json")
+	storage, err := NewFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewFileStorage failed: %v", err)
+	}
 	ctx := context.Background()
 
 	done := make(chan bool, 10)
