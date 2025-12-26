@@ -9,8 +9,9 @@ import (
 )
 
 type Config struct {
-	ServerAddress string
-	BaseShortURL  string
+	ServerAddress   string
+	BaseShortURL    string
+	FileStoragePath string
 }
 
 func Load() (*Config, error) {
@@ -33,8 +34,10 @@ func Load() (*Config, error) {
 }
 
 func extractStartConfig(cfg *Config) {
+	var fileStoragePathFlag string
 	flag.StringVar(&cfg.ServerAddress, "a", "localhost:8080", "server address")
 	flag.StringVar(&cfg.BaseShortURL, "b", "", "base shorter URL")
+	flag.StringVar(&fileStoragePathFlag, "f", "", "file storage path")
 	flag.Parse()
 
 	envServerAddress := os.Getenv("SERVER_ADDRESS")
@@ -45,5 +48,14 @@ func extractStartConfig(cfg *Config) {
 	envBaseShortURL := os.Getenv("BASE_URL")
 	if envBaseShortURL != "" {
 		cfg.BaseShortURL = envBaseShortURL
+	}
+
+	envFileStoragePath := os.Getenv("FILE_STORAGE_PATH")
+	if envFileStoragePath != "" {
+		cfg.FileStoragePath = envFileStoragePath
+	} else if fileStoragePathFlag != "" {
+		cfg.FileStoragePath = fileStoragePathFlag
+	} else {
+		cfg.FileStoragePath = "/tmp/shortener-db.json"
 	}
 }

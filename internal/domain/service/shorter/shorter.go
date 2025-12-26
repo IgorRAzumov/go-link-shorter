@@ -23,7 +23,7 @@ func (service *Service) CreateShortKey(context context.Context, URL string) (str
 	shortKey := generateShortKey(URL)
 	log.Debug().Str("short_key", shortKey).Str("url", URL).Msg("created shortKey")
 	if shortKey == "" {
-		return "", errors.New("")
+		return "", errors.New("short key creation error")
 	}
 	service.linkRepo.Save(context, &model.Link{ShortKey: shortKey, FullURL: URL})
 	return shortKey, nil

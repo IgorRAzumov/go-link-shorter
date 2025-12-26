@@ -3,7 +3,7 @@ package rest
 import (
 	"net/http"
 
-	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/reolver"
+	resolver "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/resolver"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter"
 	middleware "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middlewear"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middlewear/gzip"
@@ -17,6 +17,6 @@ func NewRouter(usecase *link.Usecase) http.Handler {
 	router.Use(middleware.HTTPLogger, gzip.GZIP)
 	router.Post("/", shorter.Handler(usecase))
 	router.Post("/api/shorten", shorter.APIHandler(usecase))
-	router.Get("/{shortKey}", reolver.Handler(usecase))
+	router.Get("/{shortKey}", resolver.Handler(usecase))
 	return router
 }

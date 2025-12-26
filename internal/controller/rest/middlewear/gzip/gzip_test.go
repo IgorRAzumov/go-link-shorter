@@ -44,7 +44,6 @@ func TestGZIP_SkipCompression_UnsupportedContentType(t *testing.T) {
 				t.Errorf("Expected status code %d, got %d", http.StatusOK, responseRecorder.Code)
 			}
 
-			// Проверяем, что ответ не сжат
 			contentEncoding := responseRecorder.Header().Get(ContentEncoding)
 			if contentEncoding != "" {
 				t.Errorf("Expected no Content-Encoding header, got '%s'", contentEncoding)
@@ -77,19 +76,16 @@ func TestGZIP_CompressResponse_ApplicationJSON(t *testing.T) {
 		t.Errorf("Expected status code %d, got %d", http.StatusOK, responseRecorder.Code)
 	}
 
-	// Проверяем, что ответ сжат
 	contentEncoding := responseRecorder.Header().Get(ContentEncoding)
 	if contentEncoding != HeaderCode {
 		t.Errorf("Expected Content-Encoding '%s', got '%s'", HeaderCode, contentEncoding)
 	}
 
-	// Проверяем, что тело сжато
 	compressedBody := responseRecorder.Body.Bytes()
 	if len(compressedBody) == 0 {
 		t.Error("Expected compressed body, got empty")
 	}
 
-	// Распаковываем и проверяем содержимое
 	gzipReader, gzipReaderError := gzip.NewReader(bytes.NewReader(compressedBody))
 	if gzipReaderError != nil {
 		t.Fatalf("Failed to create gzip reader: %v", gzipReaderError)
@@ -128,7 +124,6 @@ func TestGZIP_CompressResponse_TextHTML(t *testing.T) {
 		t.Errorf("Expected status code %d, got %d", http.StatusOK, responseRecorder.Code)
 	}
 
-	// Проверяем, что ответ сжат
 	contentEncoding := responseRecorder.Header().Get(ContentEncoding)
 	if contentEncoding != HeaderCode {
 		t.Errorf("Expected Content-Encoding '%s', got '%s'", HeaderCode, contentEncoding)
@@ -154,7 +149,6 @@ func TestGZIP_NoCompression_WithoutAcceptEncoding(t *testing.T) {
 		t.Errorf("Expected status code %d, got %d", http.StatusOK, responseRecorder.Code)
 	}
 
-	// Проверяем, что ответ не сжат
 	contentEncoding := responseRecorder.Header().Get(ContentEncoding)
 	if contentEncoding != "" {
 		t.Errorf("Expected no Content-Encoding header, got '%s'", contentEncoding)
@@ -167,7 +161,6 @@ func TestGZIP_NoCompression_WithoutAcceptEncoding(t *testing.T) {
 }
 
 func TestGZIP_DecompressRequest_WithContentEncoding(t *testing.T) {
-	// Создаем сжатое тело запроса
 	originalRequestBody := `{"url":"https://example.com"}`
 	var compressedRequestBody bytes.Buffer
 	gzipWriter := gzip.NewWriter(&compressedRequestBody)
@@ -208,7 +201,6 @@ func TestGZIP_DecompressRequest_InvalidGzip(t *testing.T) {
 		responseWriter.WriteHeader(http.StatusOK)
 	})
 
-	// Создаем невалидное gzip тело
 	invalidRequestBody := bytes.NewReader([]byte("not a gzip data"))
 	request := httptest.NewRequest(http.MethodPost, "/", invalidRequestBody)
 	request.Header.Set(common.ContentType, common.ApplicationJSON)
@@ -218,7 +210,6 @@ func TestGZIP_DecompressRequest_InvalidGzip(t *testing.T) {
 	middleware := GZIP(nextHandler)
 	middleware.ServeHTTP(responseRecorder, request)
 
-	// Должна быть ошибка при распаковке
 	if responseRecorder.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status code %d, got %d", http.StatusInternalServerError, responseRecorder.Code)
 	}
@@ -243,7 +234,6 @@ func TestGZIP_CompressResponse_ErrorStatusCode(t *testing.T) {
 		t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, responseRecorder.Code)
 	}
 
-	// Для кодов ошибок (400+) Content-Encoding не должен устанавливаться
 	contentEncoding := responseRecorder.Header().Get(ContentEncoding)
 	if contentEncoding != "" {
 		t.Errorf("Expected no Content-Encoding for error status, got '%s'", contentEncoding)
@@ -285,7 +275,6 @@ func TestGZIP_AcceptEncodingCaseInsensitive(t *testing.T) {
 			contentEncoding := responseRecorder.Header().Get(ContentEncoding)
 			if testCase.shouldCompress {
 				if !strings.Contains(strings.ToLower(testCase.acceptEncoding), "gzip") {
-					// Если в Accept-Encoding есть gzip, проверяем что сжатие произошло
 					if strings.Contains(strings.ToLower(testCase.acceptEncoding), "gzip") && contentEncoding == "" {
 						t.Errorf("Expected Content-Encoding '%s', got empty", HeaderCode)
 					}
@@ -298,8 +287,6 @@ func TestGZIP_AcceptEncodingCaseInsensitive(t *testing.T) {
 		})
 	}
 }
-
-// Tests for compressWriter
 
 func TestCompressWriter_Header(t *testing.T) {
 	originalWriter := httptest.NewRecorder()
@@ -347,7 +334,6 @@ func TestCompressWriter_WriteHeader_ErrorCode(t *testing.T) {
 		t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, originalWriter.Code)
 	}
 
-	// Для кодов ошибок Content-Encoding не должен устанавливаться
 	contentEncoding := originalWriter.Header().Get(ContentEncoding)
 	if contentEncoding != "" {
 		t.Errorf("Expected no Content-Encoding for error status, got '%s'", contentEncoding)
@@ -370,13 +356,11 @@ func TestCompressWriter_Write(t *testing.T) {
 
 	_ = compressWriter.Close()
 
-	// Проверяем, что данные сжаты
 	compressedBody := originalWriter.Body.Bytes()
 	if len(compressedBody) == 0 {
 		t.Error("Expected compressed body, got empty")
 	}
 
-	// Распаковываем и проверяем
 	gzipReader, gzipReaderError := gzip.NewReader(bytes.NewReader(compressedBody))
 	if gzipReaderError != nil {
 		t.Fatalf("Failed to create gzip reader: %v", gzipReaderError)
@@ -394,8 +378,6 @@ func TestCompressWriter_Write(t *testing.T) {
 		t.Errorf("Expected decompressed data '%s', got '%s'", string(testData), string(decompressedData))
 	}
 }
-
-// Tests for compressReader
 
 func TestCompressReader_Read(t *testing.T) {
 	originalData := []byte("test data for compression")
