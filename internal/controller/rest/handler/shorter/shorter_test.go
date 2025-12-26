@@ -147,7 +147,7 @@ func TestShortenHandler_InvalidURL(t *testing.T) {
 func TestShortenHandler_CreateShortKeyReturnsError(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
 		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
-			return "", errors.New("CreateShortKey error")
+			return "", errors.New("generation short link error")
 		},
 	}
 	handler := Handler(mockUsecase)

@@ -1,4 +1,4 @@
-package reolver
+package resolver
 
 import (
 	"net/http"
