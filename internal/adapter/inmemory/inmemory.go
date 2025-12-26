@@ -2,14 +2,13 @@ package inmemory
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"os"
 	"sync"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/adapter"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -60,7 +59,7 @@ func (storage *LinkStorage) GetShortKeyByURL(context context.Context, URL string
 
 func (storage *LinkStorage) Save(context context.Context, domainLink *model.Link) {
 	link := adapter.FromDomainLink(domainLink)
-	link.UUID = generateUUID()
+	link.UUID = uuid.New().String()
 
 	storage.linksByID.Store(link.ShortKey, link)
 	storage.linksByURL.Store(link.FullURL, link)
@@ -68,18 +67,6 @@ func (storage *LinkStorage) Save(context context.Context, domainLink *model.Link
 	if err := storage.saveToFile(); err != nil {
 		log.Error().Err(err).Msg("Failed to save data to file")
 	}
-}
-
-func generateUUID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
-	return hex.EncodeToString(b[0:4]) + "-" +
-		hex.EncodeToString(b[4:6]) + "-" +
-		hex.EncodeToString(b[6:8]) + "-" +
-		hex.EncodeToString(b[8:10]) + "-" +
-		hex.EncodeToString(b[10:16])
 }
 
 func (storage *LinkStorage) loadFromFile() error {

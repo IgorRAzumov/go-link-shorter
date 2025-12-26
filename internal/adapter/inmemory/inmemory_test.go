@@ -10,6 +10,7 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/adapter"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
+	"github.com/google/uuid"
 )
 
 func TestNewInMemoryStorage(t *testing.T) {
@@ -624,7 +625,7 @@ func TestGenerateUUID(t *testing.T) {
 	uuidCount := 100
 
 	for i := 0; i < uuidCount; i++ {
-		generatedUUID := generateUUID()
+		generatedUUID := uuid.New().String()
 
 		if len(generatedUUID) != 36 {
 			t.Errorf("UUID has incorrect length: expected 36, got %d", len(generatedUUID))
