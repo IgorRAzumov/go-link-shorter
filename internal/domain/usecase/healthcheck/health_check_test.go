@@ -1,4 +1,4 @@
-package health_check
+package healthcheck
 
 import (
 	"context"
@@ -87,8 +87,10 @@ func TestUsecase_CheckSystemConnections_WithError(t *testing.T) {
 	}
 }
 
+type testContextKey string
+
 func TestUsecase_CheckSystemConnections_PassesContext(t *testing.T) {
-	testKey := "test-key"
+	testKey := testContextKey("test-key")
 	testValue := "test-value"
 	ctx := context.WithValue(context.Background(), testKey, testValue)
 	contextPassed := false
