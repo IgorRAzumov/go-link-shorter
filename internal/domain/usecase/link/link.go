@@ -20,12 +20,17 @@ func (usecase *Usecase) GetFullURLByShorKey(context context.Context, shortKey st
 	return usecase.resolver.GetFullLink(context, shortKey)
 }
 
-func (usecase *Usecase) CreateShortKey(context context.Context, URL string) string {
-	shortKey := usecase.resolver.GetShortKeyByURL(context, URL)
-	if shortKey == "" {
-		return usecase.shorter.CreateShortKey(context, URL)
+func (usecase *Usecase) CreateShortKey(context context.Context, URL string) (string, error) {
+	existedShortKey := usecase.resolver.GetShortKeyByURL(context, URL)
+	if existedShortKey != "" {
+		return existedShortKey, nil
 	}
-	return shortKey
+
+	newShortKey, err := usecase.shorter.CreateShortKey(context, URL)
+	if err != nil {
+		return "", err
+	}
+	return newShortKey, nil
 }
 
 func (usecase *Usecase) GetBaseURL() string {

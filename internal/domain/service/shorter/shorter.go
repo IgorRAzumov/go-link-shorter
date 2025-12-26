@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/repository"
@@ -18,11 +19,14 @@ func NewShorterService(repository repository.LinkRepository) *Service {
 	return &Service{repository}
 }
 
-func (service *Service) CreateShortKey(context context.Context, URL string) string {
+func (service *Service) CreateShortKey(context context.Context, URL string) (string, error) {
 	shortKey := generateShortKey(URL)
 	log.Debug().Str("short_key", shortKey).Str("url", URL).Msg("created shortKey")
+	if shortKey == "" {
+		return "", errors.New("")
+	}
 	service.linkRepo.Save(context, &model.Link{ShortKey: shortKey, FullURL: URL})
-	return shortKey
+	return shortKey, nil
 }
 
 func generateShortKey(URL string) string {
