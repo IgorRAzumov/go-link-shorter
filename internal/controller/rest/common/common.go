@@ -8,6 +8,7 @@ import (
 )
 
 const TextPlain = "text/plain"
+const TextHTML = "text/html"
 const ApplicationJSON = "application/json"
 const ContentType = "Content-Type"
 
