@@ -18,7 +18,7 @@ func NewRouter(linkUsecase usecase.LinkUsecase, healthCheck usecase.HealthCheckU
 	router.Use(middleware.HTTPLogger, gzip.GZIP)
 	router.Post("/", shorter.Handler(linkUsecase))
 	router.Post("/api/shorten", shorter.APIHandler(linkUsecase))
-	router.Get("/{shortKey}", resolver.Handler(usecase))
+	router.Get("/{shortKey}", resolver.Handler(linkUsecase))
 	router.Get("/ping", heath_check.Handler(healthCheck))
 	return router
 }
