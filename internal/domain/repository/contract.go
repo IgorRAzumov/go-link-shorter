@@ -15,3 +15,7 @@ type LinkRepository interface {
 
 	Save(context context.Context, link *model.Link)
 }
+
+type HealthCheckRepository interface {
+	CheckStorageConnection(context context.Context) (bool, error)
+}

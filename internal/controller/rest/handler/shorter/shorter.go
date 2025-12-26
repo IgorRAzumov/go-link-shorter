@@ -64,7 +64,7 @@ func parseURL(URL string) (*url.URL, error) {
 	}
 
 	if parsedURL.Scheme == "" || parsedURL.Host == "" {
-		return &url.URL{}, fmt.Errorf("incorrect URL: %s, error: %w", parsedURL, err)
+		return nil, fmt.Errorf("incorrect URL: %s", parsedURL)
 	}
 
 	return parsedURL, nil

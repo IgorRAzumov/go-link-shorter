@@ -10,3 +10,7 @@ type ResolverService interface {
 type ShorterService interface {
 	CreateShortKey(context context.Context, URL string) (string, error)
 }
+
+type HealthCheckService interface {
+	CheckStorageConnection(context context.Context) (bool, error)
+}
