@@ -57,8 +57,6 @@ func extractStartConfig(cfg *Config) {
 		cfg.FileStoragePath = envFileStoragePath
 	} else if fileStoragePathFlag != "" {
 		cfg.FileStoragePath = fileStoragePathFlag
-	} else {
-		cfg.FileStoragePath = "/tmp/shortener-db.json"
 	}
 
 	envDatabaseAddress := os.Getenv("DATABASE_DSN")
