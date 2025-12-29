@@ -25,7 +25,7 @@ type Storage struct {
 
 func NewStorage(dsn string) (*Storage, error) {
 	if dsn == "" {
-		return nil, fmt.Errorf("database DSN is empty")
+		return &Storage{}, nil
 	}
 
 	db, err := sql.Open("postgres", dsn)
