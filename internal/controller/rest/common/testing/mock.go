@@ -10,6 +10,7 @@ import (
 type MockLinkUsecase struct {
 	GetFullURLByShortKeyFunc func(context context.Context, shortKey string) (string, error)
 	CreateShortKeyFunc       func(context context.Context, URL string) (string, error)
+	CreateShortKeysBatchFunc func(context context.Context, urls []string) (map[string]string, error)
 	GetBaseURLFunc           func() string
 }
 
@@ -25,6 +26,13 @@ func (mock *MockLinkUsecase) CreateShortKey(context context.Context, URL string)
 		return mock.CreateShortKeyFunc(context, URL)
 	}
 	return "", errors.New("generation short link error")
+}
+
+func (mock *MockLinkUsecase) CreateShortKeysBatch(context context.Context, urls []string) (map[string]string, error) {
+	if mock.CreateShortKeysBatchFunc != nil {
+		return mock.CreateShortKeysBatchFunc(context, urls)
+	}
+	return make(map[string]string), nil
 }
 
 func (mock *MockLinkUsecase) GetBaseURL() string {

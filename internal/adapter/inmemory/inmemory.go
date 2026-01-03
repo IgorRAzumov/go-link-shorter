@@ -32,6 +32,9 @@ func NewInMemoryFileStorage(filePath string) (*LinkStorage, error) {
 }
 
 func (storage *LinkStorage) GetByShortKey(context context.Context, shortURL string) string {
+	storage.mutex.RLock()
+	defer storage.mutex.RUnlock()
+
 	log.Debug().Str("short_key", shortURL).Msg("storage: GetByShortKey")
 	value, _ := storage.linksByID.Load(shortURL)
 	if link, ok := value.(*adapter.Link); ok {
@@ -41,12 +44,18 @@ func (storage *LinkStorage) GetByShortKey(context context.Context, shortURL stri
 }
 
 func (storage *LinkStorage) IsExistShortKey(context context.Context, shortKey string) bool {
+	storage.mutex.RLock()
+	defer storage.mutex.RUnlock()
+
 	log.Debug().Str("short_key", shortKey).Msg("storage: IsExistShortKey")
 	_, ok := storage.linksByID.Load(shortKey)
 	return ok
 }
 
 func (storage *LinkStorage) GetShortKeyByURL(context context.Context, URL string) string {
+	storage.mutex.RLock()
+	defer storage.mutex.RUnlock()
+
 	log.Debug().Str("url", URL).Msg("storage: GetByURL")
 	value, ok := storage.linksByURL.Load(URL)
 	if ok {
@@ -58,11 +67,35 @@ func (storage *LinkStorage) GetShortKeyByURL(context context.Context, URL string
 }
 
 func (storage *LinkStorage) Save(context context.Context, domainLink *model.Link) {
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
+
 	link := adapter.FromDomainLink(domainLink)
 	link.UUID = uuid.New().String()
 
 	storage.linksByID.Store(link.ShortKey, link)
 	storage.linksByURL.Store(link.FullURL, link)
+
+	if err := storage.saveToFile(); err != nil {
+		log.Error().Err(err).Msg("Failed to save data to file")
+	}
+}
+
+func (storage *LinkStorage) BatchSave(context context.Context, links []*model.Link) {
+	if len(links) == 0 {
+		return
+	}
+
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
+
+	for _, domainLink := range links {
+		link := adapter.FromDomainLink(domainLink)
+		link.UUID = uuid.New().String()
+
+		storage.linksByID.Store(link.ShortKey, link)
+		storage.linksByURL.Store(link.FullURL, link)
+	}
 
 	if err := storage.saveToFile(); err != nil {
 		log.Error().Err(err).Msg("Failed to save data to file")
@@ -107,9 +140,6 @@ func (storage *LinkStorage) saveToFile() error {
 	if storage.filePath == "" {
 		return nil
 	}
-
-	storage.mutex.Lock()
-	defer storage.mutex.Unlock()
 
 	allLinks := storage.getAllLinks()
 	data, marshalError := json.MarshalIndent(allLinks, "", "  ")

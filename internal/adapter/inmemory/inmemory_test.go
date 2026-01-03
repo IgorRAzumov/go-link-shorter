@@ -641,3 +641,128 @@ func TestGenerateUUID(t *testing.T) {
 		t.Errorf("Expected %d unique UUIDs, got %d", uuidCount, len(uuidSet))
 	}
 }
+
+func TestLinkStorage_BatchSave_EmptySlice(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "batch-test.json")
+	storage, err := NewInMemoryFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
+	}
+	ctx := context.Background()
+
+	storage.BatchSave(ctx, []*model.Link{})
+
+	allLinks := storage.getAllLinks()
+	if len(allLinks) != 0 {
+		t.Errorf("Expected 0 links after empty batch save, got %d", len(allLinks))
+	}
+}
+
+func TestLinkStorage_BatchSave_SingleLink(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "batch-single-test.json")
+	storage, err := NewInMemoryFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
+	}
+	ctx := context.Background()
+
+	testLink := &model.Link{
+		ShortKey: "batch-key-1",
+		FullURL:  "https://batch1.com",
+	}
+
+	storage.BatchSave(ctx, []*model.Link{testLink})
+
+	if !storage.IsExistShortKey(ctx, "batch-key-1") {
+		t.Error("Link was not saved in batch")
+	}
+
+	retrievedURL := storage.GetByShortKey(ctx, "batch-key-1")
+	if retrievedURL != testLink.FullURL {
+		t.Errorf("Expected URL '%s', got '%s'", testLink.FullURL, retrievedURL)
+	}
+}
+
+func TestLinkStorage_BatchSave_MultipleLinks(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "batch-multiple-test.json")
+	storage, err := NewInMemoryFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
+	}
+	ctx := context.Background()
+
+	testLinks := []*model.Link{
+		{
+			ShortKey: "batch-key-1",
+			FullURL:  "https://batch1.com",
+		},
+		{
+			ShortKey: "batch-key-2",
+			FullURL:  "https://batch2.com",
+		},
+		{
+			ShortKey: "batch-key-3",
+			FullURL:  "https://batch3.com",
+		},
+	}
+
+	storage.BatchSave(ctx, testLinks)
+
+	allLinks := storage.getAllLinks()
+	if len(allLinks) != len(testLinks) {
+		t.Errorf("Expected %d links, got %d", len(testLinks), len(allLinks))
+	}
+
+	for _, expectedLink := range testLinks {
+		if !storage.IsExistShortKey(ctx, expectedLink.ShortKey) {
+			t.Errorf("Link with key '%s' was not saved", expectedLink.ShortKey)
+		}
+
+		retrievedURL := storage.GetByShortKey(ctx, expectedLink.ShortKey)
+		if retrievedURL != expectedLink.FullURL {
+			t.Errorf("Expected URL '%s' for key '%s', got '%s'", expectedLink.FullURL, expectedLink.ShortKey, retrievedURL)
+		}
+	}
+}
+
+func TestLinkStorage_BatchSave_PersistsToFile(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "batch-persist-test.json")
+	firstStorage, err := NewInMemoryFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
+	}
+	ctx := context.Background()
+
+	testLinks := []*model.Link{
+		{
+			ShortKey: "batch-persist-1",
+			FullURL:  "https://batch-persist1.com",
+		},
+		{
+			ShortKey: "batch-persist-2",
+			FullURL:  "https://batch-persist2.com",
+		},
+	}
+
+	firstStorage.BatchSave(ctx, testLinks)
+
+	secondStorage, err := NewInMemoryFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewInMemoryFileStorage failed on second initialization: %v", err)
+	}
+
+	for _, expectedLink := range testLinks {
+		if !secondStorage.IsExistShortKey(ctx, expectedLink.ShortKey) {
+			t.Errorf("Link with key '%s' was not restored after restart", expectedLink.ShortKey)
+		}
+
+		retrievedURL := secondStorage.GetByShortKey(ctx, expectedLink.ShortKey)
+		if retrievedURL != expectedLink.FullURL {
+			t.Errorf("Expected URL '%s' for key '%s', got '%s'", expectedLink.FullURL, expectedLink.ShortKey, retrievedURL)
+		}
+	}
+}

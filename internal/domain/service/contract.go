@@ -1,6 +1,10 @@
 package service
 
-import "context"
+import (
+	"context"
+
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
+)
 
 type ResolverService interface {
 	GetFullLink(context context.Context, shortKey string) (string, error)
@@ -9,6 +13,8 @@ type ResolverService interface {
 
 type ShorterService interface {
 	CreateShortKey(context context.Context, URL string) (string, error)
+	GenerateShortKey(URL string) string
+	CreateShortKeys(context context.Context, links []*model.Link)
 }
 
 type HealthCheckService interface {

@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 )
 
 func TestNewStorage(t *testing.T) {
@@ -224,5 +226,123 @@ func TestStorage_CheckStorageConnection_AfterClose(t *testing.T) {
 	}
 	if result {
 		t.Error("CheckStorageConnection should return false after close")
+	}
+}
+
+func TestStorage_BatchSave_EmptySlice(t *testing.T) {
+	databaseDSN := os.Getenv("TEST_DATABASE_DSN")
+	if databaseDSN == "" {
+		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
+	}
+
+	storage, err := NewStorage(databaseDSN)
+	if err != nil {
+		t.Fatalf("NewStorage failed: %v", err)
+	}
+	defer func(storage *Storage) {
+		if closeError := storage.Close(); closeError != nil {
+			t.Fatalf("Failed to close storage")
+		}
+	}(storage)
+
+	ctx := context.Background()
+	storage.BatchSave(ctx, []*model.Link{})
+}
+
+func TestStorage_BatchSave_SingleLink(t *testing.T) {
+	databaseDSN := os.Getenv("TEST_DATABASE_DSN")
+	if databaseDSN == "" {
+		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
+	}
+
+	storage, err := NewStorage(databaseDSN)
+	if err != nil {
+		t.Fatalf("NewStorage failed: %v", err)
+	}
+	defer func(storage *Storage) {
+		if closeError := storage.Close(); closeError != nil {
+			t.Fatalf("Failed to close storage")
+		}
+	}(storage)
+
+	ctx := context.Background()
+	testLink := &model.Link{
+		ShortKey: "batch-test-key-1",
+		FullURL:  "https://batch-test1.com",
+	}
+
+	storage.BatchSave(ctx, []*model.Link{testLink})
+
+	if !storage.IsExistShortKey(ctx, "batch-test-key-1") {
+		t.Error("Link was not saved in batch")
+	}
+
+	retrievedURL := storage.GetByShortKey(ctx, "batch-test-key-1")
+	if retrievedURL != testLink.FullURL {
+		t.Errorf("Expected URL '%s', got '%s'", testLink.FullURL, retrievedURL)
+	}
+}
+
+func TestStorage_BatchSave_MultipleLinks(t *testing.T) {
+	databaseDSN := os.Getenv("TEST_DATABASE_DSN")
+	if databaseDSN == "" {
+		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
+	}
+
+	storage, err := NewStorage(databaseDSN)
+	if err != nil {
+		t.Fatalf("NewStorage failed: %v", err)
+	}
+	defer func(storage *Storage) {
+		if closeError := storage.Close(); closeError != nil {
+			t.Fatalf("Failed to close storage")
+		}
+	}(storage)
+
+	ctx := context.Background()
+	testLinks := []*model.Link{
+		{
+			ShortKey: "batch-test-key-2",
+			FullURL:  "https://batch-test2.com",
+		},
+		{
+			ShortKey: "batch-test-key-3",
+			FullURL:  "https://batch-test3.com",
+		},
+		{
+			ShortKey: "batch-test-key-4",
+			FullURL:  "https://batch-test4.com",
+		},
+	}
+
+	storage.BatchSave(ctx, testLinks)
+
+	for _, expectedLink := range testLinks {
+		if !storage.IsExistShortKey(ctx, expectedLink.ShortKey) {
+			t.Errorf("Link with key '%s' was not saved", expectedLink.ShortKey)
+		}
+
+		retrievedURL := storage.GetByShortKey(ctx, expectedLink.ShortKey)
+		if retrievedURL != expectedLink.FullURL {
+			t.Errorf("Expected URL '%s' for key '%s', got '%s'", expectedLink.FullURL, expectedLink.ShortKey, retrievedURL)
+		}
+	}
+}
+
+func TestStorage_BatchSave_WithNilDB(t *testing.T) {
+	storage := &Storage{}
+
+	ctx := context.Background()
+	testLinks := []*model.Link{
+		{
+			ShortKey: "test-key",
+			FullURL:  "https://test.com",
+		},
+	}
+
+	storage.BatchSave(ctx, testLinks)
+
+	if storage.db != nil {
+		t.Error("BatchSave should not fail with nil db")
 	}
 }
