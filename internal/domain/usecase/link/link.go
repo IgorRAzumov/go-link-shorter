@@ -24,11 +24,6 @@ func (usecase *Usecase) GetFullURLByShorKey(context context.Context, shortKey st
 }
 
 func (usecase *Usecase) CreateShortKey(context context.Context, URL string) (string, error) {
-	existedShortKey := usecase.resolver.GetShortKeyByURL(context, URL)
-	if existedShortKey != "" {
-		return existedShortKey, nil
-	}
-
 	newShortKey, err := usecase.shorter.CreateShortKey(context, URL)
 	if err != nil {
 		var conflictErr *model.URLConflictError

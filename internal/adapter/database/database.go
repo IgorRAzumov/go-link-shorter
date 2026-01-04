@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgerrcode"
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 )
 
