@@ -66,7 +66,7 @@ func (storage *LinkStorage) GetShortKeyByURL(context context.Context, URL string
 	return ""
 }
 
-func (storage *LinkStorage) Save(context context.Context, domainLink *model.Link) {
+func (storage *LinkStorage) Save(context context.Context, domainLink *model.Link) error {
 	storage.mutex.Lock()
 	defer storage.mutex.Unlock()
 
@@ -78,12 +78,14 @@ func (storage *LinkStorage) Save(context context.Context, domainLink *model.Link
 
 	if err := storage.saveToFile(); err != nil {
 		log.Error().Err(err).Msg("Failed to save data to file")
+		return err
 	}
+	return nil
 }
 
-func (storage *LinkStorage) BatchSave(context context.Context, links []*model.Link) {
+func (storage *LinkStorage) BatchSave(context context.Context, links []*model.Link) error {
 	if len(links) == 0 {
-		return
+		return nil
 	}
 
 	storage.mutex.Lock()
@@ -99,7 +101,9 @@ func (storage *LinkStorage) BatchSave(context context.Context, links []*model.Li
 
 	if err := storage.saveToFile(); err != nil {
 		log.Error().Err(err).Msg("Failed to save data to file")
+		return err
 	}
+	return nil
 }
 
 func (storage *LinkStorage) loadFromFile() error {

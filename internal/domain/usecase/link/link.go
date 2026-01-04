@@ -31,6 +31,10 @@ func (usecase *Usecase) CreateShortKey(context context.Context, URL string) (str
 
 	newShortKey, err := usecase.shorter.CreateShortKey(context, URL)
 	if err != nil {
+		var conflictErr *model.URLConflictError
+		if errors.As(err, &conflictErr) {
+			return conflictErr.ExistingShortKey, conflictErr
+		}
 		return "", err
 	}
 	return newShortKey, nil
@@ -65,7 +69,20 @@ func (usecase *Usecase) CreateShortKeysBatch(context context.Context, urls []str
 	}
 
 	if len(linksToSave) > 0 {
-		usecase.shorter.CreateShortKeys(context, linksToSave)
+		err := usecase.shorter.CreateShortKeys(context, linksToSave)
+		if err != nil {
+			var conflictErr *model.URLConflictError
+			if errors.As(err, &conflictErr) {
+				for _, link := range linksToSave {
+					normalizedURL := common.NormalizeURL(link.FullURL)
+					if usecase.resolver.GetShortKeyByURL(context, normalizedURL) == conflictErr.ExistingShortKey {
+						result[normalizedURL] = conflictErr.ExistingShortKey
+					}
+				}
+			} else {
+				return nil, err
+			}
+		}
 	}
 
 	return result, nil

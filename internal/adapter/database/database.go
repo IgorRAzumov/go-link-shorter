@@ -13,6 +13,8 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/google/uuid"
+	"github.com/jackc/pgerrcode"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 )
@@ -151,35 +153,46 @@ func (storage *Storage) IsExistShortKey(ctx context.Context, shortURL string) bo
 	return exists
 }
 
-func (storage *Storage) Save(ctx context.Context, link *model.Link) {
+func (storage *Storage) Save(ctx context.Context, link *model.Link) error {
 	if storage.db == nil {
-		return
+		return nil
 	}
 
 	normalizedURL := common.NormalizeURL(link.FullURL)
 	linkUUID := uuid.New().String()
 
 	_, err := storage.db.ExecContext(ctx,
-		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3) ON CONFLICT (short_key) DO UPDATE SET full_url = EXCLUDED.full_url",
+		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3)",
 		linkUUID, link.ShortKey, normalizedURL)
 	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			if pqErr.Code == pgerrcode.UniqueViolation && pqErr.Constraint == "idx_links_full_url_unique" {
+				existingShortKey := storage.GetShortKeyByURL(ctx, normalizedURL)
+				if existingShortKey != "" {
+					return &model.URLConflictError{ExistingShortKey: existingShortKey}
+				}
+				return model.ErrURLConflict
+			}
+		}
 		log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", normalizedURL).Msg("Failed to save link")
+		return err
 	}
+	return nil
 }
 
-func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) {
+func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) error {
 	if storage.db == nil {
-		return
+		return nil
 	}
 
 	if len(links) == 0 {
-		return
+		return nil
 	}
 
 	tx, err := storage.db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to begin transaction")
-		return
+		return err
 	}
 
 	defer func() {
@@ -189,10 +202,10 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) {
 	}()
 
 	stmt, err := tx.PrepareContext(ctx,
-		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3) ON CONFLICT (short_key) DO UPDATE SET full_url = EXCLUDED.full_url")
+		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3)")
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to prepare batch insert statement")
-		return
+		return err
 	}
 	defer func(stmt *sql.Stmt) {
 		err := stmt.Close()
@@ -207,12 +220,23 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) {
 
 		_, err := stmt.ExecContext(ctx, linkUUID, link.ShortKey, normalizedURL)
 		if err != nil {
+			if pqErr, ok := err.(*pq.Error); ok {
+				if pqErr.Code == pgerrcode.UniqueViolation && pqErr.Constraint == "idx_links_full_url_unique" {
+					existingShortKey := storage.GetShortKeyByURL(ctx, normalizedURL)
+					if existingShortKey != "" {
+						return &model.URLConflictError{ExistingShortKey: existingShortKey}
+					}
+					return model.ErrURLConflict
+				}
+			}
 			log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", normalizedURL).Msg("Failed to save link in batch")
-			return
+			return err
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
 		log.Error().Err(err).Msg("Failed to commit transaction")
+		return err
 	}
+	return nil
 }

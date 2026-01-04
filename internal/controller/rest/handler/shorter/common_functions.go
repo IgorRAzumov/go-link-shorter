@@ -2,9 +2,11 @@ package shorter
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 	"github.com/rs/zerolog/log"
 )
@@ -33,7 +35,11 @@ func GenerateShortKey(body string, context context.Context, writer http.Response
 
 	shortKey, err := usecase.CreateShortKey(context, common.NormalizeURL(originalURL.String()))
 	if err != nil {
-		common.BadRequestError(writer, err)
+		var conflictErr *model.URLConflictError
+		if !errors.As(err, &conflictErr) {
+			common.BadRequestError(writer, err)
+			return "", err
+		}
 		return "", err
 	}
 	log.Logger.Debug().Msg("returned shortKey: " + shortKey)

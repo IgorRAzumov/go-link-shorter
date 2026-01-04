@@ -11,8 +11,8 @@ type mockLinkRepository struct {
 	getByShortKeyFunc    func(context context.Context, shortURL string) string
 	getShortKeyByURLFunc func(context context.Context, URL string) string
 	isExistShortKeyFunc  func(context context.Context, shortURL string) bool
-	saveFunc             func(context context.Context, link *model.Link)
-	batchSaveFunc        func(context context.Context, links []*model.Link)
+	saveFunc             func(context context.Context, link *model.Link) error
+	batchSaveFunc        func(context context.Context, links []*model.Link) error
 }
 
 func (m *mockLinkRepository) GetByShortKey(context context.Context, shortURL string) string {
@@ -36,16 +36,18 @@ func (m *mockLinkRepository) IsExistShortKey(context context.Context, shortURL s
 	return false
 }
 
-func (m *mockLinkRepository) Save(context context.Context, link *model.Link) {
+func (m *mockLinkRepository) Save(context context.Context, link *model.Link) error {
 	if m.saveFunc != nil {
-		m.saveFunc(context, link)
+		return m.saveFunc(context, link)
 	}
+	return nil
 }
 
-func (m *mockLinkRepository) BatchSave(context context.Context, links []*model.Link) {
+func (m *mockLinkRepository) BatchSave(context context.Context, links []*model.Link) error {
 	if m.batchSaveFunc != nil {
-		m.batchSaveFunc(context, links)
+		return m.batchSaveFunc(context, links)
 	}
+	return nil
 }
 
 func TestGenerateShortKey_ReturnsNonEmpty(t *testing.T) {
@@ -99,8 +101,9 @@ func TestCreateShortKeys_EmptySlice(t *testing.T) {
 func TestCreateShortKeys_CallsBatchSave(t *testing.T) {
 	var savedLinks []*model.Link
 	repo := &mockLinkRepository{
-		batchSaveFunc: func(context context.Context, links []*model.Link) {
+		batchSaveFunc: func(context context.Context, links []*model.Link) error {
 			savedLinks = links
+			return nil
 		},
 	}
 	service := NewShorterService(repo)
@@ -136,8 +139,9 @@ func TestCreateShortKeys_CallsBatchSave(t *testing.T) {
 func TestCreateShortKeys_MultipleLinks(t *testing.T) {
 	var savedLinks []*model.Link
 	repo := &mockLinkRepository{
-		batchSaveFunc: func(context context.Context, links []*model.Link) {
+		batchSaveFunc: func(context context.Context, links []*model.Link) error {
 			savedLinks = links
+			return nil
 		},
 	}
 	service := NewShorterService(repo)

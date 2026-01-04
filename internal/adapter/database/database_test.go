@@ -2,11 +2,13 @@ package database
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
+	"github.com/rs/zerolog/log"
 )
 
 func TestNewStorage(t *testing.T) {
@@ -246,7 +248,9 @@ func TestStorage_BatchSave_EmptySlice(t *testing.T) {
 	}(storage)
 
 	ctx := context.Background()
-	storage.BatchSave(ctx, []*model.Link{})
+	if err := storage.BatchSave(ctx, []*model.Link{}); err != nil {
+		log.Error().Err(err).Msg("BatchSave failed with empty slice")
+	}
 }
 
 func TestStorage_BatchSave_SingleLink(t *testing.T) {
@@ -271,7 +275,9 @@ func TestStorage_BatchSave_SingleLink(t *testing.T) {
 		FullURL:  "https://batch-test1.com",
 	}
 
-	storage.BatchSave(ctx, []*model.Link{testLink})
+	if err := storage.BatchSave(ctx, []*model.Link{testLink}); err != nil {
+		log.Error().Err(err).Msg("BatchSave failed for single link")
+	}
 
 	if !storage.IsExistShortKey(ctx, "batch-test-key-1") {
 		t.Error("Link was not saved in batch")
@@ -315,7 +321,9 @@ func TestStorage_BatchSave_MultipleLinks(t *testing.T) {
 		},
 	}
 
-	storage.BatchSave(ctx, testLinks)
+	if err := storage.BatchSave(ctx, testLinks); err != nil {
+		log.Error().Err(err).Msg("BatchSave failed for multiple links")
+	}
 
 	for _, expectedLink := range testLinks {
 		if !storage.IsExistShortKey(ctx, expectedLink.ShortKey) {
@@ -340,9 +348,141 @@ func TestStorage_BatchSave_WithNilDB(t *testing.T) {
 		},
 	}
 
-	storage.BatchSave(ctx, testLinks)
+	if err := storage.BatchSave(ctx, testLinks); err != nil {
+		log.Error().Err(err).Msg("BatchSave failed with nil db")
+	}
 
 	if storage.db != nil {
 		t.Error("BatchSave should not fail with nil db")
+	}
+}
+
+func TestStorage_Save_WithURLConflict(t *testing.T) {
+	databaseDSN := os.Getenv("TEST_DATABASE_DSN")
+	if databaseDSN == "" {
+		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
+	}
+
+	storage, err := NewStorage(databaseDSN)
+	if err != nil {
+		t.Fatalf("NewStorage failed: %v", err)
+	}
+	defer func(storage *Storage) {
+		if closeError := storage.Close(); closeError != nil {
+			t.Fatalf("Failed to close storage")
+		}
+	}(storage)
+
+	ctx := context.Background()
+	testURL := "https://conflict-test.com"
+	firstShortKey := "first-conflict-key"
+	secondShortKey := "second-conflict-key"
+
+	// Save first link
+	firstLink := &model.Link{
+		ShortKey: firstShortKey,
+		FullURL:  testURL,
+	}
+	err = storage.Save(ctx, firstLink)
+	if err != nil {
+		t.Fatalf("Failed to save first link: %v", err)
+	}
+
+	// Try to save second link with same URL but different short_key
+	secondLink := &model.Link{
+		ShortKey: secondShortKey,
+		FullURL:  testURL,
+	}
+	err = storage.Save(ctx, secondLink)
+	if err == nil {
+		t.Error("Expected URLConflictError when saving duplicate URL, got nil")
+	}
+
+	// Check that error is URLConflictError with correct existing short key
+	var conflictErr *model.URLConflictError
+	if !errors.As(err, &conflictErr) {
+		t.Fatalf("Expected URLConflictError, got %T: %v", err, err)
+	}
+
+	if conflictErr.ExistingShortKey != firstShortKey {
+		t.Errorf("Expected existing short key '%s', got '%s'", firstShortKey, conflictErr.ExistingShortKey)
+	}
+
+	// Verify that first link still exists and second link was not saved
+	if !storage.IsExistShortKey(ctx, firstShortKey) {
+		t.Error("First link should still exist")
+	}
+
+	if storage.IsExistShortKey(ctx, secondShortKey) {
+		t.Error("Second link should not have been saved")
+	}
+
+	// Verify that GetShortKeyByURL returns the first short key
+	retrievedShortKey := storage.GetShortKeyByURL(ctx, testURL)
+	if retrievedShortKey != firstShortKey {
+		t.Errorf("Expected short key '%s', got '%s'", firstShortKey, retrievedShortKey)
+	}
+}
+
+func TestStorage_BatchSave_WithURLConflict(t *testing.T) {
+	databaseDSN := os.Getenv("TEST_DATABASE_DSN")
+	if databaseDSN == "" {
+		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
+	}
+
+	storage, err := NewStorage(databaseDSN)
+	if err != nil {
+		t.Fatalf("NewStorage failed: %v", err)
+	}
+	defer func(storage *Storage) {
+		if closeError := storage.Close(); closeError != nil {
+			t.Fatalf("Failed to close storage")
+		}
+	}(storage)
+
+	ctx := context.Background()
+	testURL := "https://batch-conflict-test.com"
+	firstShortKey := "batch-first-conflict-key"
+	secondShortKey := "batch-second-conflict-key"
+
+	// Save first link
+	firstLink := &model.Link{
+		ShortKey: firstShortKey,
+		FullURL:  testURL,
+	}
+	err = storage.Save(ctx, firstLink)
+	if err != nil {
+		t.Fatalf("Failed to save first link: %v", err)
+	}
+
+	// Try to batch save with conflicting URL
+	conflictingLinks := []*model.Link{
+		{
+			ShortKey: secondShortKey,
+			FullURL:  testURL,
+		},
+	}
+	err = storage.BatchSave(ctx, conflictingLinks)
+	if err == nil {
+		t.Error("Expected URLConflictError when batch saving duplicate URL, got nil")
+	}
+
+	// Check that error is URLConflictError with correct existing short key
+	var conflictErr *model.URLConflictError
+	if !errors.As(err, &conflictErr) {
+		t.Fatalf("Expected URLConflictError, got %T: %v", err, err)
+	}
+
+	if conflictErr.ExistingShortKey != firstShortKey {
+		t.Errorf("Expected existing short key '%s', got '%s'", firstShortKey, conflictErr.ExistingShortKey)
+	}
+
+	// Verify that first link still exists and second link was not saved
+	if !storage.IsExistShortKey(ctx, firstShortKey) {
+		t.Error("First link should still exist")
+	}
+
+	if storage.IsExistShortKey(ctx, secondShortKey) {
+		t.Error("Second link should not have been saved")
 	}
 }

@@ -25,7 +25,10 @@ func (service *Service) CreateShortKey(context context.Context, URL string) (str
 	if shortKey == "" {
 		return "", errors.New("short key creation error")
 	}
-	service.linkRepo.Save(context, &model.Link{ShortKey: shortKey, FullURL: URL})
+	err := service.linkRepo.Save(context, &model.Link{ShortKey: shortKey, FullURL: URL})
+	if err != nil {
+		return "", err
+	}
 	return shortKey, nil
 }
 
@@ -34,6 +37,6 @@ func (service *Service) GenerateShortKey(URL string) string {
 	return base64.RawURLEncoding.EncodeToString(hash[:8])
 }
 
-func (service *Service) CreateShortKeys(context context.Context, links []*model.Link) {
-	service.linkRepo.BatchSave(context, links)
+func (service *Service) CreateShortKeys(context context.Context, links []*model.Link) error {
+	return service.linkRepo.BatchSave(context, links)
 }

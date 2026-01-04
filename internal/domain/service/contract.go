@@ -14,7 +14,7 @@ type ResolverService interface {
 type ShorterService interface {
 	CreateShortKey(context context.Context, URL string) (string, error)
 	GenerateShortKey(URL string) string
-	CreateShortKeys(context context.Context, links []*model.Link)
+	CreateShortKeys(context context.Context, links []*model.Link) error
 }
 
 type HealthCheckService interface {

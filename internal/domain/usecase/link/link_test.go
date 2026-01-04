@@ -24,7 +24,7 @@ func (m *mockResolverService) GetShortKeyByURL(context context.Context, URL stri
 
 type mockShorterService struct {
 	generateShortKeyFunc func(URL string) string
-	createShortKeysFunc  func(context context.Context, links []*model.Link)
+	createShortKeysFunc  func(context context.Context, links []*model.Link) error
 }
 
 func (m *mockShorterService) CreateShortKey(context context.Context, URL string) (string, error) {
@@ -38,10 +38,11 @@ func (m *mockShorterService) GenerateShortKey(URL string) string {
 	return ""
 }
 
-func (m *mockShorterService) CreateShortKeys(context context.Context, links []*model.Link) {
+func (m *mockShorterService) CreateShortKeys(context context.Context, links []*model.Link) error {
 	if m.createShortKeysFunc != nil {
-		m.createShortKeysFunc(context, links)
+		return m.createShortKeysFunc(context, links)
 	}
+	return nil
 }
 
 func TestCreateShortKeysBatch_EmptyURLs(t *testing.T) {
@@ -99,8 +100,9 @@ func TestCreateShortKeysBatch_WithNewURLs(t *testing.T) {
 		generateShortKeyFunc: func(URL string) string {
 			return newKey
 		},
-		createShortKeysFunc: func(context context.Context, links []*model.Link) {
+		createShortKeysFunc: func(context context.Context, links []*model.Link) error {
 			savedLinks = links
+			return nil
 		},
 	}
 	usecase := NewLinkUsecase(resolver, shorter, "http://localhost:8080")
@@ -144,8 +146,9 @@ func TestCreateShortKeysBatch_WithMixedURLs(t *testing.T) {
 		generateShortKeyFunc: func(URL string) string {
 			return newKey
 		},
-		createShortKeysFunc: func(context context.Context, links []*model.Link) {
+		createShortKeysFunc: func(context context.Context, links []*model.Link) error {
 			savedLinks = links
+			return nil
 		},
 	}
 	usecase := NewLinkUsecase(resolver, shorter, "http://localhost:8080")
@@ -207,7 +210,9 @@ func TestCreateShortKeysBatch_NormalizesURLs(t *testing.T) {
 			normalizedURL = URL
 			return newKey
 		},
-		createShortKeysFunc: func(context context.Context, links []*model.Link) {},
+		createShortKeysFunc: func(context context.Context, links []*model.Link) error {
+			return nil
+		},
 	}
 	usecase := NewLinkUsecase(resolver, shorter, "http://localhost:8080")
 
