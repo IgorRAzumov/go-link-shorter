@@ -164,13 +164,22 @@ func (storage *Storage) Save(ctx context.Context, link *model.Link) error {
 		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3)",
 		linkUUID, link.ShortKey, normalizedURL)
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok {
-			if pqErr.Code == pgerrcode.UniqueViolation && pqErr.Constraint == "idx_links_full_url_unique" {
-				existingShortKey := storage.GetShortKeyByURL(ctx, normalizedURL)
-				if existingShortKey != "" {
-					return &model.URLConflictError{ExistingShortKey: existingShortKey}
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) {
+			if pqErr.Code == pgerrcode.UniqueViolation {
+				if pqErr.Constraint == "idx_links_full_url_unique" {
+					existingShortKey := storage.GetShortKeyByURL(ctx, normalizedURL)
+					if existingShortKey != "" {
+						return &model.URLConflictError{ExistingShortKey: existingShortKey}
+					}
+					return model.ErrURLConflict
 				}
-				return model.ErrURLConflict
+				if pqErr.Constraint == "links_short_key_key" {
+					existingURL := storage.GetByShortKey(ctx, link.ShortKey)
+					if existingURL == normalizedURL {
+						return &model.URLConflictError{ExistingShortKey: link.ShortKey}
+					}
+				}
 			}
 		}
 		log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", normalizedURL).Msg("Failed to save link")
@@ -219,13 +228,22 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) erro
 
 		_, err := stmt.ExecContext(ctx, linkUUID, link.ShortKey, normalizedURL)
 		if err != nil {
-			if pqErr, ok := err.(*pq.Error); ok {
-				if pqErr.Code == pgerrcode.UniqueViolation && pqErr.Constraint == "idx_links_full_url_unique" {
-					existingShortKey := storage.GetShortKeyByURL(ctx, normalizedURL)
-					if existingShortKey != "" {
-						return &model.URLConflictError{ExistingShortKey: existingShortKey}
+			var pqErr *pq.Error
+			if errors.As(err, &pqErr) {
+				if pqErr.Code == pgerrcode.UniqueViolation {
+					if pqErr.Constraint == "idx_links_full_url_unique" {
+						existingShortKey := storage.GetShortKeyByURL(ctx, normalizedURL)
+						if existingShortKey != "" {
+							return &model.URLConflictError{ExistingShortKey: existingShortKey}
+						}
+						return model.ErrURLConflict
 					}
-					return model.ErrURLConflict
+					if pqErr.Constraint == "links_short_key_key" {
+						existingURL := storage.GetByShortKey(ctx, link.ShortKey)
+						if existingURL == normalizedURL {
+							return &model.URLConflictError{ExistingShortKey: link.ShortKey}
+						}
+					}
 				}
 			}
 			log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", normalizedURL).Msg("Failed to save link in batch")
