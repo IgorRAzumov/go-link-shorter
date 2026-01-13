@@ -13,6 +13,6 @@ type Service struct {
 func NewHealthCheckService(repository repository.HealthCheckRepository) *Service {
 	return &Service{repository: repository}
 }
-func (service *Service) CheckStorageConnection(context context.Context) (bool, error) {
-	return service.repository.CheckStorageConnection(context)
+func (service *Service) CheckStorageConnection(ctx context.Context) (bool, error) {
+	return service.repository.CheckStorageConnection(ctx)
 }

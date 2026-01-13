@@ -7,17 +7,17 @@ import (
 )
 
 type LinkRepository interface {
-	GetByShortKey(context context.Context, shortURL string) string
+	GetByShortKey(ctx context.Context, shortURL string) string
 
-	GetShortKeyByURL(context context.Context, URL string) string
+	GetShortKeyByURL(ctx context.Context, URL string) string
 
-	IsExistShortKey(context context.Context, shortURL string) bool
+	IsExistShortKey(ctx context.Context, shortURL string) bool
 
-	Save(context context.Context, link *model.Link)
+	Save(ctx context.Context, link *model.Link) error
 
-	BatchSave(context context.Context, links []*model.Link)
+	BatchSave(ctx context.Context, links []*model.Link) error
 }
 
 type HealthCheckRepository interface {
-	CheckStorageConnection(context context.Context) (bool, error)
+	CheckStorageConnection(ctx context.Context) (bool, error)
 }

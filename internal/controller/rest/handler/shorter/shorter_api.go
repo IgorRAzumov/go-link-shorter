@@ -2,11 +2,13 @@ package shorter
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter/model"
+	domainmodel "github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
 
@@ -29,6 +31,25 @@ func APIHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
 
 		shortKey, err := GenerateShortKey(shortenRequest.URL, request.Context(), writer, usecase)
 		if err != nil {
+			var conflictErr *domainmodel.URLConflictError
+			if errors.As(err, &conflictErr) {
+				var response = &model.ShortenResponse{
+					Result: GenerateShortenURL(usecase.GetBaseURL(), conflictErr.ExistingShortKey, request),
+				}
+				bytes, jsonErr := response.MarshalJSON()
+				if jsonErr != nil {
+					common.InternalError(writer, jsonErr)
+					return
+				}
+
+				writer.Header().Set(common.ContentType, common.ApplicationJSON)
+				writer.WriteHeader(http.StatusConflict)
+				_, writeError := writer.Write(bytes)
+				if writeError != nil {
+					common.InternalError(writer, writeError)
+				}
+				return
+			}
 			return
 		}
 

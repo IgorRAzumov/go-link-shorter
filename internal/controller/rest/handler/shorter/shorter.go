@@ -1,6 +1,7 @@
 package shorter
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -8,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 	"github.com/rs/zerolog/log"
 )
@@ -27,6 +29,11 @@ func Handler(usecase usecase.LinkUsecase) http.HandlerFunc {
 
 		shortKey, err := GenerateShortKey(string(body), request.Context(), writer, usecase)
 		if err != nil {
+			var conflictErr *model.URLConflictError
+			if errors.As(err, &conflictErr) {
+				sendConflictResponse(writer, GenerateShortenURL(usecase.GetBaseURL(), conflictErr.ExistingShortKey, request))
+				return
+			}
 			return
 		}
 
@@ -37,6 +44,16 @@ func Handler(usecase usecase.LinkUsecase) http.HandlerFunc {
 func sendResponse(writer http.ResponseWriter, shortURL string) {
 	writer.Header().Set(common.ContentType, common.TextPlain)
 	writer.WriteHeader(http.StatusCreated)
+	_, err := writer.Write([]byte(shortURL))
+	if err != nil {
+		common.InternalError(writer, err)
+		return
+	}
+}
+
+func sendConflictResponse(writer http.ResponseWriter, shortURL string) {
+	writer.Header().Set(common.ContentType, common.TextPlain)
+	writer.WriteHeader(http.StatusConflict)
 	_, err := writer.Write([]byte(shortURL))
 	if err != nil {
 		common.InternalError(writer, err)

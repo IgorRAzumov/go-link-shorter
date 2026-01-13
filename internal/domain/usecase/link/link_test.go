@@ -5,29 +5,31 @@ import (
 	"testing"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service"
 )
 
 type mockResolverService struct {
-	getShortKeyByURLFunc func(context context.Context, URL string) string
+	getShortKeyByURLFunc func(ctx context.Context, URL string) string
 }
 
-func (m *mockResolverService) GetFullLink(context context.Context, shortKey string) (string, error) {
+func (m *mockResolverService) GetFullLink(ctx context.Context, shortKey string) (string, error) {
 	return "", nil
 }
 
-func (m *mockResolverService) GetShortKeyByURL(context context.Context, URL string) string {
+func (m *mockResolverService) GetShortKeyByURL(ctx context.Context, URL string) string {
 	if m.getShortKeyByURLFunc != nil {
-		return m.getShortKeyByURLFunc(context, URL)
+		return m.getShortKeyByURLFunc(ctx, URL)
 	}
 	return ""
 }
 
 type mockShorterService struct {
-	generateShortKeyFunc func(URL string) string
-	createShortKeysFunc  func(context context.Context, links []*model.Link)
+	generateShortKeyFunc            func(URL string) string
+	createShortKeysFunc             func(ctx context.Context, links []*model.Link) error
+	processBatchShortenRequestsFunc func(ctx context.Context, requests []model.BatchShortenRequest, resolver service.ResolverService) ([]model.BatchShortenResult, error)
 }
 
-func (m *mockShorterService) CreateShortKey(context context.Context, URL string) (string, error) {
+func (m *mockShorterService) CreateShortKey(ctx context.Context, URL string) (string, error) {
 	return "", nil
 }
 
@@ -38,10 +40,18 @@ func (m *mockShorterService) GenerateShortKey(URL string) string {
 	return ""
 }
 
-func (m *mockShorterService) CreateShortKeys(context context.Context, links []*model.Link) {
+func (m *mockShorterService) CreateShortKeys(ctx context.Context, links []*model.Link) error {
 	if m.createShortKeysFunc != nil {
-		m.createShortKeysFunc(context, links)
+		return m.createShortKeysFunc(ctx, links)
 	}
+	return nil
+}
+
+func (m *mockShorterService) ProcessBatchShortenRequests(ctx context.Context, requests []model.BatchShortenRequest, resolver service.ResolverService) ([]model.BatchShortenResult, error) {
+	if m.processBatchShortenRequestsFunc != nil {
+		return m.processBatchShortenRequestsFunc(ctx, requests, resolver)
+	}
+	return []model.BatchShortenResult{}, nil
 }
 
 func TestCreateShortKeysBatch_EmptyURLs(t *testing.T) {
@@ -63,7 +73,7 @@ func TestCreateShortKeysBatch_EmptyURLs(t *testing.T) {
 func TestCreateShortKeysBatch_WithExistingURLs(t *testing.T) {
 	existingKey := "existing-key-123"
 	resolver := &mockResolverService{
-		getShortKeyByURLFunc: func(context context.Context, URL string) string {
+		getShortKeyByURLFunc: func(ctx context.Context, URL string) string {
 			if URL == "https://example.com" {
 				return existingKey
 			}
@@ -90,7 +100,7 @@ func TestCreateShortKeysBatch_WithExistingURLs(t *testing.T) {
 func TestCreateShortKeysBatch_WithNewURLs(t *testing.T) {
 	newKey := "new-key-456"
 	resolver := &mockResolverService{
-		getShortKeyByURLFunc: func(context context.Context, URL string) string {
+		getShortKeyByURLFunc: func(ctx context.Context, URL string) string {
 			return ""
 		},
 	}
@@ -99,8 +109,9 @@ func TestCreateShortKeysBatch_WithNewURLs(t *testing.T) {
 		generateShortKeyFunc: func(URL string) string {
 			return newKey
 		},
-		createShortKeysFunc: func(context context.Context, links []*model.Link) {
+		createShortKeysFunc: func(ctx context.Context, links []*model.Link) error {
 			savedLinks = links
+			return nil
 		},
 	}
 	usecase := NewLinkUsecase(resolver, shorter, "http://localhost:8080")
@@ -132,7 +143,7 @@ func TestCreateShortKeysBatch_WithMixedURLs(t *testing.T) {
 	existingKey := "existing-key"
 	newKey := "new-key"
 	resolver := &mockResolverService{
-		getShortKeyByURLFunc: func(context context.Context, URL string) string {
+		getShortKeyByURLFunc: func(ctx context.Context, URL string) string {
 			if URL == "https://existing.com" {
 				return existingKey
 			}
@@ -144,8 +155,9 @@ func TestCreateShortKeysBatch_WithMixedURLs(t *testing.T) {
 		generateShortKeyFunc: func(URL string) string {
 			return newKey
 		},
-		createShortKeysFunc: func(context context.Context, links []*model.Link) {
+		createShortKeysFunc: func(ctx context.Context, links []*model.Link) error {
 			savedLinks = links
+			return nil
 		},
 	}
 	usecase := NewLinkUsecase(resolver, shorter, "http://localhost:8080")
@@ -172,7 +184,7 @@ func TestCreateShortKeysBatch_WithMixedURLs(t *testing.T) {
 
 func TestCreateShortKeysBatch_GenerateShortKeyReturnsEmpty(t *testing.T) {
 	resolver := &mockResolverService{
-		getShortKeyByURLFunc: func(context context.Context, URL string) string {
+		getShortKeyByURLFunc: func(ctx context.Context, URL string) string {
 			return ""
 		},
 	}
@@ -197,7 +209,7 @@ func TestCreateShortKeysBatch_GenerateShortKeyReturnsEmpty(t *testing.T) {
 func TestCreateShortKeysBatch_NormalizesURLs(t *testing.T) {
 	newKey := "normalized-key"
 	resolver := &mockResolverService{
-		getShortKeyByURLFunc: func(context context.Context, URL string) string {
+		getShortKeyByURLFunc: func(ctx context.Context, URL string) string {
 			return ""
 		},
 	}
@@ -207,7 +219,9 @@ func TestCreateShortKeysBatch_NormalizesURLs(t *testing.T) {
 			normalizedURL = URL
 			return newKey
 		},
-		createShortKeysFunc: func(context context.Context, links []*model.Link) {},
+		createShortKeysFunc: func(ctx context.Context, links []*model.Link) error {
+			return nil
+		},
 	}
 	usecase := NewLinkUsecase(resolver, shorter, "http://localhost:8080")
 

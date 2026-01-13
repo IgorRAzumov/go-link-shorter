@@ -3,6 +3,7 @@ package shorter
 import (
 	"encoding/json"
 	"io"
+	"mime"
 	"net/http"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
@@ -12,7 +13,7 @@ import (
 
 func BatchAPIHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		if request.Header.Get(common.ContentType) != common.ApplicationJSON {
+		if !IsApplicationJSON(request.Header.Get(common.ContentType)) {
 			common.MethodNotAllowedError(writer)
 			return
 		}
@@ -32,31 +33,16 @@ func BatchAPIHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
 			return
 		}
 
-		urls := make([]string, 0, len(batchRequests))
-		urlToCorrelationMap := make(map[string]string)
-
-		for _, req := range batchRequests {
-			normalizedURL := common.NormalizeURL(req.OriginalURL)
-			urls = append(urls, normalizedURL)
-			urlToCorrelationMap[normalizedURL] = req.CorrelationID
+		scheme := "http"
+		if request.TLS != nil || request.Header.Get("X-Forwarded-Proto") == "https" {
+			scheme = "https"
 		}
+		host := request.Host
 
-		shortKeysMap, err := usecase.CreateShortKeysBatch(request.Context(), urls)
+		batchResponses, err := usecase.ProcessBatchShortenRequests(request.Context(), batchRequests, scheme, host)
 		if err != nil {
 			common.InternalError(writer, err)
 			return
-		}
-
-		batchResponses := make([]model.BatchShortenResponse, 0, len(batchRequests))
-		for _, req := range batchRequests {
-			normalizedURL := common.NormalizeURL(req.OriginalURL)
-			shortKey := shortKeysMap[normalizedURL]
-			if shortKey != "" {
-				batchResponses = append(batchResponses, model.BatchShortenResponse{
-					CorrelationID: req.CorrelationID,
-					ShortURL:      GenerateShortenURL(usecase.GetBaseURL(), shortKey, request),
-				})
-			}
 		}
 
 		responseBytes, jsonErr := json.Marshal(batchResponses)
@@ -72,4 +58,12 @@ func BatchAPIHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
 			common.InternalError(writer, writeError)
 		}
 	}
+}
+
+func IsApplicationJSON(contentType string) bool {
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+	return mediaType == common.ApplicationJSON
 }

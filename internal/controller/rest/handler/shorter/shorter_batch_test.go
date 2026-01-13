@@ -43,14 +43,31 @@ func TestBatchAPIHandler_WrongContentType(t *testing.T) {
 		{"text/html", "HTML content type"},
 		{"application/xml", "XML content type"},
 		{"", "Empty content type"},
+		{"application/json; charset=utf-8", "application/json with charset - should be valid"},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
-			mockUsecase := &commontesting.MockLinkUsecase{}
+			mockUsecase := &commontesting.MockLinkUsecase{
+				GetBaseURLFunc: func() string {
+					return "http://localhost:8080"
+				},
+			}
+			if strings.Contains(testCase.contentType, "application/json") && testCase.contentType != "" {
+				mockUsecase.ProcessBatchShortenRequestsFunc = func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
+					responses := make([]model.BatchShortenResponse, 0, len(requests))
+					for _, req := range requests {
+						responses = append(responses, model.BatchShortenResponse{
+							CorrelationID: req.CorrelationID,
+							ShortURL:      "http://localhost:8080/test-key",
+						})
+					}
+					return responses, nil
+				}
+			}
 			handler := BatchAPIHandler(mockUsecase)
 
-			request := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", strings.NewReader(`[]`))
+			request := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", strings.NewReader(`[{"correlation_id":"1","original_url":"https://example.com"}]`))
 			if testCase.contentType != "" {
 				request.Header.Set(common.ContentType, testCase.contentType)
 			}
@@ -58,8 +75,14 @@ func TestBatchAPIHandler_WrongContentType(t *testing.T) {
 
 			handler(writer, request)
 
-			if writer.Code != http.StatusMethodNotAllowed {
-				t.Errorf("Expected status code %d for content type '%s', got %d", http.StatusMethodNotAllowed, testCase.contentType, writer.Code)
+			if strings.Contains(testCase.contentType, "application/json") && testCase.contentType != "" {
+				if writer.Code != http.StatusCreated {
+					t.Errorf("Expected status code %d for content type '%s', got %d", http.StatusCreated, testCase.contentType, writer.Code)
+				}
+			} else {
+				if writer.Code != http.StatusMethodNotAllowed {
+					t.Errorf("Expected status code %d for content type '%s', got %d", http.StatusMethodNotAllowed, testCase.contentType, writer.Code)
+				}
 			}
 		})
 	}
@@ -111,8 +134,8 @@ func TestBatchAPIHandler_EmptyBatch(t *testing.T) {
 
 func TestBatchAPIHandler_CreateShortKeysBatchReturnsError(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeysBatchFunc: func(context context.Context, urls []string) (map[string]string, error) {
-			return nil, errors.New("CreateShortKeysBatch error")
+		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
+			return nil, errors.New("ProcessBatchShortenRequests error")
 		},
 	}
 	handler := BatchAPIHandler(mockUsecase)
@@ -131,15 +154,15 @@ func TestBatchAPIHandler_CreateShortKeysBatchReturnsError(t *testing.T) {
 func TestBatchAPIHandler_Success_WithBaseURL(t *testing.T) {
 	expectedShortKey := "abc123"
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetBaseURLFunc: func() string {
-			return "http://localhost:8080"
-		},
-		CreateShortKeysBatchFunc: func(context context.Context, urls []string) (map[string]string, error) {
-			result := make(map[string]string)
-			for _, url := range urls {
-				result[url] = expectedShortKey
+		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
+			responses := make([]model.BatchShortenResponse, 0, len(requests))
+			for _, req := range requests {
+				responses = append(responses, model.BatchShortenResponse{
+					CorrelationID: req.CorrelationID,
+					ShortURL:      "http://localhost:8080/" + expectedShortKey,
+				})
 			}
-			return result, nil
+			return responses, nil
 		},
 	}
 	handler := BatchAPIHandler(mockUsecase)
@@ -181,16 +204,16 @@ func TestBatchAPIHandler_Success_WithBaseURL(t *testing.T) {
 
 func TestBatchAPIHandler_Success_MultipleURLs(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetBaseURLFunc: func() string {
-			return "http://localhost:8080"
-		},
-		CreateShortKeysBatchFunc: func(context context.Context, urls []string) (map[string]string, error) {
-			result := make(map[string]string)
+		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
 			keys := []string{"key1", "key2", "key3"}
-			for i, url := range urls {
-				result[url] = keys[i]
+			responses := make([]model.BatchShortenResponse, 0, len(requests))
+			for i, req := range requests {
+				responses = append(responses, model.BatchShortenResponse{
+					CorrelationID: req.CorrelationID,
+					ShortURL:      "http://localhost:8080/" + keys[i],
+				})
 			}
-			return result, nil
+			return responses, nil
 		},
 	}
 	handler := BatchAPIHandler(mockUsecase)
@@ -239,15 +262,15 @@ func TestBatchAPIHandler_Success_MultipleURLs(t *testing.T) {
 func TestBatchAPIHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 	expectedShortKey := "xyz789"
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetBaseURLFunc: func() string {
-			return ""
-		},
-		CreateShortKeysBatchFunc: func(context context.Context, urls []string) (map[string]string, error) {
-			result := make(map[string]string)
-			for _, url := range urls {
-				result[url] = expectedShortKey
+		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
+			responses := make([]model.BatchShortenResponse, 0, len(requests))
+			for _, req := range requests {
+				responses = append(responses, model.BatchShortenResponse{
+					CorrelationID: req.CorrelationID,
+					ShortURL:      scheme + "://" + host + "/" + expectedShortKey,
+				})
 			}
-			return result, nil
+			return responses, nil
 		},
 	}
 	handler := BatchAPIHandler(mockUsecase)
@@ -266,6 +289,10 @@ func TestBatchAPIHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 	var responses []model.BatchShortenResponse
 	if err := json.Unmarshal(writer.Body.Bytes(), &responses); err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	if len(responses) == 0 {
+		t.Fatalf("Expected at least 1 response, got 0")
 	}
 
 	if !strings.Contains(responses[0].ShortURL, expectedShortKey) {

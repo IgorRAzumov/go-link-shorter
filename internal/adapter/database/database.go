@@ -13,7 +13,8 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/google/uuid"
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgerrcode"
+	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 )
 
@@ -151,35 +152,50 @@ func (storage *Storage) IsExistShortKey(ctx context.Context, shortURL string) bo
 	return exists
 }
 
-func (storage *Storage) Save(ctx context.Context, link *model.Link) {
+func (storage *Storage) Save(ctx context.Context, link *model.Link) error {
 	if storage.db == nil {
-		return
+		return nil
 	}
 
-	normalizedURL := common.NormalizeURL(link.FullURL)
-	linkUUID := uuid.New().String()
+	linkUUID := uuid.NewString()
 
 	_, err := storage.db.ExecContext(ctx,
-		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3) ON CONFLICT (short_key) DO UPDATE SET full_url = EXCLUDED.full_url",
-		linkUUID, link.ShortKey, normalizedURL)
+		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3)",
+		linkUUID, link.ShortKey, link.FullURL)
 	if err != nil {
-		log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", normalizedURL).Msg("Failed to save link")
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) {
+			if pqErr.Code == pgerrcode.UniqueViolation {
+				existingShortKey := storage.GetShortKeyByURL(ctx, link.FullURL)
+				if existingShortKey != "" {
+					return &model.URLConflictError{ExistingShortKey: existingShortKey}
+				}
+				existingURL := storage.GetByShortKey(ctx, link.ShortKey)
+				if existingURL == link.FullURL {
+					return &model.URLConflictError{ExistingShortKey: link.ShortKey}
+				}
+				return model.ErrURLConflict
+			}
+		}
+		log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", link.FullURL).Msg("Failed to save link")
+		return err
 	}
+	return nil
 }
 
-func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) {
+func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) error {
 	if storage.db == nil {
-		return
+		return nil
 	}
 
 	if len(links) == 0 {
-		return
+		return nil
 	}
 
 	tx, err := storage.db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to begin transaction")
-		return
+		return err
 	}
 
 	defer func() {
@@ -189,10 +205,10 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) {
 	}()
 
 	stmt, err := tx.PrepareContext(ctx,
-		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3) ON CONFLICT (short_key) DO UPDATE SET full_url = EXCLUDED.full_url")
+		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3)")
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to prepare batch insert statement")
-		return
+		return err
 	}
 	defer func(stmt *sql.Stmt) {
 		err := stmt.Close()
@@ -202,17 +218,32 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) {
 	}(stmt)
 
 	for _, link := range links {
-		normalizedURL := common.NormalizeURL(link.FullURL)
 		linkUUID := uuid.New().String()
 
-		_, err := stmt.ExecContext(ctx, linkUUID, link.ShortKey, normalizedURL)
+		_, err := stmt.ExecContext(ctx, linkUUID, link.ShortKey, link.FullURL)
 		if err != nil {
-			log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", normalizedURL).Msg("Failed to save link in batch")
-			return
+			var pqErr *pq.Error
+			if errors.As(err, &pqErr) {
+				if pqErr.Code == pgerrcode.UniqueViolation {
+					existingShortKey := storage.GetShortKeyByURL(ctx, link.FullURL)
+					if existingShortKey != "" {
+						return &model.URLConflictError{ExistingShortKey: existingShortKey}
+					}
+					existingURL := storage.GetByShortKey(ctx, link.ShortKey)
+					if existingURL == link.FullURL {
+						return &model.URLConflictError{ExistingShortKey: link.ShortKey}
+					}
+					return model.ErrURLConflict
+				}
+			}
+			log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", link.FullURL).Msg("Failed to save link in batch")
+			return err
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
 		log.Error().Err(err).Msg("Failed to commit transaction")
+		return err
 	}
+	return nil
 }

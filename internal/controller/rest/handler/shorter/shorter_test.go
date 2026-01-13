@@ -14,6 +14,8 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 	commontesting "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common/testing"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter/model"
+	domainmodel "github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
+	"github.com/rs/zerolog/log"
 )
 
 func TestShortenHandler_WrongMethod(t *testing.T) {
@@ -56,7 +58,7 @@ func TestShortenHandler_WrongContentType(t *testing.T) {
 				},
 			}
 			if strings.Contains(testCase.contentType, "text/plain") && testCase.contentType != "" {
-				mockUsecase.CreateShortKeyFunc = func(context context.Context, URL string) (string, error) {
+				mockUsecase.CreateShortKeyFunc = func(ctx context.Context, URL string) (string, error) {
 					return "short-key", nil
 				}
 			}
@@ -146,7 +148,7 @@ func TestShortenHandler_InvalidURL(t *testing.T) {
 
 func TestShortenHandler_CreateShortKeyReturnsError(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return "", errors.New("generation short link error")
 		},
 	}
@@ -169,7 +171,7 @@ func TestShortenHandler_Success_HTTP(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			if URL != "https://example.com" {
 				t.Errorf("Expected URL 'https://example.com', got '%s'", URL)
 			}
@@ -207,7 +209,7 @@ func TestShortenHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return ""
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return expectedShortKey, nil
 		},
 	}
@@ -237,7 +239,7 @@ func TestShortenHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return ""
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return expectedShortKey, nil
 		},
 	}
@@ -268,7 +270,7 @@ func TestShortenHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.
 		GetBaseURLFunc: func() string {
 			return ""
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return expectedShortKey, nil
 		},
 	}
@@ -299,7 +301,7 @@ func TestShortenHandler_Success_HTTPS_TLS(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "https://example.com"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return expectedShortKey, nil
 		},
 	}
@@ -330,7 +332,7 @@ func TestShortenHandler_Success_HTTPS_XForwardedProto(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "https://example.com"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return expectedShortKey, nil
 		},
 	}
@@ -361,7 +363,7 @@ func TestShortenHandler_ResponseWriteError(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return expectedShortKey, nil
 		},
 	}
@@ -530,12 +532,47 @@ func TestSendResponse_WriteError(t *testing.T) {
 	}
 }
 
+func TestSendConflictResponse(t *testing.T) {
+	writer := httptest.NewRecorder()
+	shortURL := "http://localhost:8080/conflict123"
+
+	sendConflictResponse(writer, shortURL)
+
+	if writer.Code != http.StatusConflict {
+		t.Errorf("Expected status code %d, got %d", http.StatusConflict, writer.Code)
+	}
+
+	contentType := writer.Header().Get(common.ContentType)
+	if contentType != common.TextPlain {
+		t.Errorf("Expected Content-Type '%s', got '%s'", common.TextPlain, contentType)
+	}
+
+	body := writer.Body.String()
+	if body != shortURL {
+		t.Errorf("Expected body '%s', got '%s'", shortURL, body)
+	}
+}
+
+func TestSendConflictResponse_WriteError(t *testing.T) {
+	writer := &errorResponseWriter{
+		ResponseRecorder: httptest.NewRecorder(),
+		shouldError:      true,
+	}
+	shortURL := "http://localhost:8080/conflict123"
+
+	sendConflictResponse(writer, shortURL)
+
+	if writer.statusCode != http.StatusInternalServerError {
+		t.Errorf("Expected status code %d, got %d", http.StatusInternalServerError, writer.statusCode)
+	}
+}
+
 func TestShortenHandler_URLCreatesWithCorrectFormat(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
 		GetBaseURLFunc: func() string {
 			return "http://myserver.com:9090"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return "short123", nil
 		},
 	}
@@ -564,7 +601,7 @@ func TestShortenHandler_NormalizesURL(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			if URL == "https://example.com" {
 				return "normalized123", nil
 			}
@@ -591,7 +628,7 @@ func TestShortenHandler_HandlesBodyWithWhitespace(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			if URL == "https://example.com" {
 				return "trimmed123", nil
 			}
@@ -620,7 +657,10 @@ func TestReadBody_ClosesBody(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/", body)
-	_, _ = readBody(req)
+	_, err := readBody(req)
+	if err != nil {
+		log.Error().Err(err).Msg("readBody failed in test")
+	}
 
 	if !body.closed {
 		t.Error("readBody should close the request body")
@@ -757,7 +797,7 @@ func TestAPIHandler_InvalidURL(t *testing.T) {
 
 func TestAPIHandler_CreateShortKeyReturnsError(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return "", errors.New("CreateShortKey error")
 		},
 	}
@@ -780,7 +820,7 @@ func TestAPIHandler_Success_WithBaseURL(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			if URL != "https://example.com" {
 				t.Errorf("Expected URL 'https://example.com', got '%s'", URL)
 			}
@@ -820,7 +860,7 @@ func TestAPIHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return ""
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return expectedShortKey, nil
 		},
 	}
@@ -853,7 +893,7 @@ func TestAPIHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return ""
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return expectedShortKey, nil
 		},
 	}
@@ -887,7 +927,7 @@ func TestAPIHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.T) {
 		GetBaseURLFunc: func() string {
 			return ""
 		},
-		CreateShortKeyFunc: func(context context.Context, URL string) (string, error) {
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return expectedShortKey, nil
 		},
 	}
@@ -1124,5 +1164,108 @@ func TestGenerateShortKey_TrimsWhitespace(t *testing.T) {
 	}
 	if shortKey != expectedShortKey {
 		t.Errorf("Expected shortKey '%s', got '%s'", expectedShortKey, shortKey)
+	}
+}
+
+func TestShortenHandler_URLConflict(t *testing.T) {
+	existingShortKey := "existing-key-123"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		GetBaseURLFunc: func() string {
+			return "http://localhost:8080"
+		},
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
+			return "", &domainmodel.URLConflictError{ExistingShortKey: existingShortKey}
+		},
+	}
+	handler := Handler(mockUsecase)
+
+	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
+	request.Header.Set(common.ContentType, common.TextPlain)
+	request.Host = "localhost:8080"
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusConflict {
+		t.Errorf("Expected status code %d, got %d", http.StatusConflict, writer.Code)
+	}
+
+	expectedURL := "http://localhost:8080/" + existingShortKey
+	body := writer.Body.String()
+	if body != expectedURL {
+		t.Errorf("Expected body '%s', got '%s'", expectedURL, body)
+	}
+
+	contentType := writer.Header().Get(common.ContentType)
+	if contentType != common.TextPlain {
+		t.Errorf("Expected Content-Type '%s', got '%s'", common.TextPlain, contentType)
+	}
+}
+
+func TestAPIHandler_URLConflict(t *testing.T) {
+	existingShortKey := "existing-api-key-456"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		GetBaseURLFunc: func() string {
+			return "http://localhost:8080"
+		},
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
+			return "", &domainmodel.URLConflictError{ExistingShortKey: existingShortKey}
+		},
+	}
+	handler := APIHandler(mockUsecase)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
+	request.Header.Set(common.ContentType, common.ApplicationJSON)
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusConflict {
+		t.Errorf("Expected status code %d, got %d", http.StatusConflict, writer.Code)
+	}
+
+	expectedResult := "http://localhost:8080/" + existingShortKey
+	var response model.ShortenResponse
+	if err := json.Unmarshal(writer.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	if response.Result != expectedResult {
+		t.Errorf("Expected result '%s', got '%s'", expectedResult, response.Result)
+	}
+
+	contentType := writer.Header().Get(common.ContentType)
+	if contentType != common.ApplicationJSON {
+		t.Errorf("Expected Content-Type '%s', got '%s'", common.ApplicationJSON, contentType)
+	}
+}
+
+func TestGenerateShortKey_URLConflict(t *testing.T) {
+	body := "https://example.com"
+	existingShortKey := "conflict-key-789"
+	mockUsecase := &commontesting.MockLinkUsecase{
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
+			return "", &domainmodel.URLConflictError{ExistingShortKey: existingShortKey}
+		},
+	}
+	writer := httptest.NewRecorder()
+	ctx := context.Background()
+
+	shortKey, err := GenerateShortKey(body, ctx, writer, mockUsecase)
+
+	if err == nil {
+		t.Error("Expected error from CreateShortKey with conflict, got nil")
+	}
+	var conflictErr *domainmodel.URLConflictError
+	if !errors.As(err, &conflictErr) {
+		t.Fatalf("Expected URLConflictError, got %T: %v", err, err)
+	}
+	if conflictErr.ExistingShortKey != existingShortKey {
+		t.Errorf("Expected existing short key '%s', got '%s'", existingShortKey, conflictErr.ExistingShortKey)
+	}
+	if shortKey != "" {
+		t.Errorf("Expected empty shortKey on conflict, got '%s'", shortKey)
+	}
+	if writer.Code == http.StatusBadRequest {
+		t.Error("Should not return BadRequest for conflict error")
 	}
 }
