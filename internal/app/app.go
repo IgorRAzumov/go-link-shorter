@@ -14,14 +14,16 @@ import (
 )
 
 func Run(serverAddress, baseURL, fileStoragePath, databaseDSN string) {
-	storage := initStorage(fileStoragePath)
+	storage := initStorage(databaseDSN, fileStoragePath)
 	shorterService := shorter.NewShorterService(storage)
 	resolverService := resolver.NewResolverService(storage)
 	linkUsecase := link.NewLinkUsecase(resolverService, shorterService, baseURL)
 
-	dataBaseStorage, err := database.NewStorage(databaseDSN)
-	if err != nil {
-		log.Fatal().Err(err).Str("dsn", databaseDSN).Msg("Failed to initialize database storage")
+	var dataBaseStorage *database.Storage
+	if dbStorage, ok := storage.(*database.Storage); ok {
+		dataBaseStorage = dbStorage
+	} else {
+		dataBaseStorage = &database.Storage{}
 	}
 	healthCheckService := healthcheck.NewHealthCheckService(dataBaseStorage)
 	healthCheckUsecase := healthcheckusecase.NewHealthCheckUsecase(healthCheckService)
@@ -29,11 +31,29 @@ func Run(serverAddress, baseURL, fileStoragePath, databaseDSN string) {
 	rest.Start(linkUsecase, healthCheckUsecase, serverAddress)
 }
 
-func initStorage(fileStoragePath string) repository.LinkRepository {
-	fileStorage, err := inmemory.NewInMemoryFileStorage(fileStoragePath)
-	if err != nil {
-		log.Fatal().Err(err).Str("file_path", fileStoragePath).Msg("Failed to initialize file storage")
+func initStorage(databaseDSN, fileStoragePath string) repository.LinkRepository {
+	if databaseDSN != "" {
+		dbStorage, err := database.NewStorage(databaseDSN)
+		if err != nil {
+			log.Fatal().Err(err).Str("dsn", databaseDSN).Msg("Failed to initialize database storage")
+		}
+		log.Info().Msg("Using PostgreSQL database storage")
+		return dbStorage
 	}
-	log.Info().Str("file_path", fileStoragePath).Msg("Using file storage")
-	return fileStorage
+
+	if fileStoragePath != "" {
+		fileStorage, err := inmemory.NewInMemoryFileStorage(fileStoragePath)
+		if err != nil {
+			log.Fatal().Err(err).Str("file_path", fileStoragePath).Msg("Failed to initialize file storage")
+		}
+		log.Info().Str("file_path", fileStoragePath).Msg("Using file storage")
+		return fileStorage
+	}
+
+	memoryStorage, err := inmemory.NewInMemoryFileStorage("")
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize in-memory storage")
+	}
+	log.Info().Msg("Using in-memory storage")
+	return memoryStorage
 }

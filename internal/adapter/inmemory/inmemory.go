@@ -16,7 +16,7 @@ type LinkStorage struct {
 	linksByID  sync.Map
 	linksByURL sync.Map
 	filePath   string
-	mu         sync.Mutex
+	mutex      sync.RWMutex
 }
 
 func NewInMemoryFileStorage(filePath string) (*LinkStorage, error) {
@@ -70,8 +70,8 @@ func (storage *LinkStorage) Save(context context.Context, domainLink *model.Link
 }
 
 func (storage *LinkStorage) loadFromFile() error {
-	storage.mu.Lock()
-	defer storage.mu.Unlock()
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
 
 	if _, err := os.Stat(storage.filePath); os.IsNotExist(err) {
 		log.Info().Str("file_path", storage.filePath).Msg("Storage file does not exist, starting with empty storage")
@@ -104,8 +104,12 @@ func (storage *LinkStorage) loadFromFile() error {
 }
 
 func (storage *LinkStorage) saveToFile() error {
-	storage.mu.Lock()
-	defer storage.mu.Unlock()
+	if storage.filePath == "" {
+		return nil
+	}
+
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
 
 	allLinks := storage.getAllLinks()
 	data, marshalError := json.MarshalIndent(allLinks, "", "  ")
