@@ -7,3 +7,7 @@ type LinkUsecase interface {
 	CreateShortKey(context context.Context, URL string) (string, error)
 	GetBaseURL() string
 }
+
+type HealthCheckUsecase interface {
+	CheckSystemConnections(context context.Context) (bool, error)
+}

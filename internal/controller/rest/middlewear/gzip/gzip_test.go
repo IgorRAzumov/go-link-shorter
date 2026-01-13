@@ -139,7 +139,6 @@ func TestGZIP_NoCompression_WithoutAcceptEncoding(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	request.Header.Set(common.ContentType, common.ApplicationJSON)
-	// Не устанавливаем Accept-Encoding
 	responseRecorder := httptest.NewRecorder()
 
 	middleware := GZIP(nextHandler)

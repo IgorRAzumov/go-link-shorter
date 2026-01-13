@@ -35,7 +35,7 @@ func APIHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
 		var response = &model.ShortenResponse{
 			Result: GenerateShortenURL(usecase.GetBaseURL(), shortKey, request),
 		}
-		bytes, jsonErr := (*response).MarshalJSON()
+		bytes, jsonErr := response.MarshalJSON()
 		if jsonErr != nil {
 			common.InternalError(writer, jsonErr)
 			return

@@ -1013,7 +1013,6 @@ func TestGenerateShortKey_Success(t *testing.T) {
 	if shortKey != expectedShortKey {
 		t.Errorf("Expected shortKey '%s', got '%s'", expectedShortKey, shortKey)
 	}
-	// В успешном случае BadRequestError не должен вызываться
 	if writer.Code == http.StatusBadRequest {
 		t.Errorf("Expected no error status code, got BadRequest (%d). Body: %s", writer.Code, writer.Body.String())
 	}
@@ -1085,7 +1084,6 @@ func TestGenerateShortKey_NormalizesURL(t *testing.T) {
 	expectedShortKey := "normalized123"
 	mockUsecase := &commontesting.MockLinkUsecase{
 		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
-			// URL должен быть нормализован (без trailing slash)
 			if URL != "https://example.com" {
 				t.Errorf("Expected normalized URL 'https://example.com', got '%s'", URL)
 			}
@@ -1110,7 +1108,6 @@ func TestGenerateShortKey_TrimsWhitespace(t *testing.T) {
 	expectedShortKey := "trimmed123"
 	mockUsecase := &commontesting.MockLinkUsecase{
 		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
-			// URL должен быть нормализован (без пробелов и trailing slash)
 			if URL != "https://example.com" {
 				t.Errorf("Expected normalized URL 'https://example.com', got '%s'", URL)
 			}
