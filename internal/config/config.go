@@ -4,15 +4,16 @@ import (
 	"flag"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
+
+	"github.com/ilyakaznacheev/cleanenv"
 )
 
 type Config struct {
-	ServerAddress   string
-	BaseShortURL    string
-	FileStoragePath string
-	DatabaseAddress string
+	ServerAddress   string `env:"SERVER_ADDRESS" env-default:"localhost:8080"`
+	BaseShortURL    string `env:"BASE_URL"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH"`
+	DatabaseAddress string `env:"DATABASE_DSN"`
 }
 
 func Load() (*Config, error) {
@@ -35,32 +36,36 @@ func Load() (*Config, error) {
 }
 
 func extractStartConfig(cfg *Config) {
+	_ = cleanenv.ReadEnv(cfg)
+
+	envServerAddress := cfg.ServerAddress
+	envBaseShortURL := cfg.BaseShortURL
+	envFileStoragePath := cfg.FileStoragePath
+	envDatabaseAddress := cfg.DatabaseAddress
+
+	var serverAddressFlag string
+	var baseShortURLFlag string
 	var fileStoragePathFlag string
-	flag.StringVar(&cfg.ServerAddress, "a", "localhost:8080", "server address")
-	flag.StringVar(&cfg.BaseShortURL, "b", "", "base shorter URL")
+	var databaseAddressFlag string
+
+	flag.StringVar(&serverAddressFlag, "a", "localhost:8080", "server address")
+	flag.StringVar(&baseShortURLFlag, "b", "", "base shorter URL")
 	flag.StringVar(&fileStoragePathFlag, "f", "", "file storage path")
-	flag.StringVar(&cfg.DatabaseAddress, "d", "", "database DSN")
+	flag.StringVar(&databaseAddressFlag, "d", "", "database DSN")
 	flag.Parse()
 
-	envServerAddress := os.Getenv("SERVER_ADDRESS")
-	if envServerAddress != "" {
-		cfg.ServerAddress = envServerAddress
+	if envServerAddress == "" || envServerAddress == "localhost:8080" {
+		if serverAddressFlag != "" {
+			cfg.ServerAddress = serverAddressFlag
+		}
 	}
-
-	envBaseShortURL := os.Getenv("BASE_URL")
-	if envBaseShortURL != "" {
-		cfg.BaseShortURL = envBaseShortURL
+	if envBaseShortURL == "" {
+		cfg.BaseShortURL = baseShortURLFlag
 	}
-
-	envFileStoragePath := os.Getenv("FILE_STORAGE_PATH")
-	if envFileStoragePath != "" {
-		cfg.FileStoragePath = envFileStoragePath
-	} else if fileStoragePathFlag != "" {
+	if envFileStoragePath == "" {
 		cfg.FileStoragePath = fileStoragePathFlag
 	}
-
-	envDatabaseAddress := os.Getenv("DATABASE_DSN")
-	if envDatabaseAddress != "" {
-		cfg.DatabaseAddress = envDatabaseAddress
+	if envDatabaseAddress == "" {
+		cfg.DatabaseAddress = databaseAddressFlag
 	}
 }

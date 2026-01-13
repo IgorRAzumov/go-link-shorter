@@ -27,7 +27,7 @@ func TestResolveHandler_EmptyPath(t *testing.T) {
 
 func TestResolveHandler_SingleCharPath_NotFound(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetFullURLByShortKeyFunc: func(context context.Context, shortKey string) (string, error) {
+		GetFullURLByShortKeyFunc: func(ctx context.Context, shortKey string) (string, error) {
 			return "", errors.New("not found")
 		},
 	}
@@ -74,7 +74,7 @@ func TestResolveHandler_PathLengthLessThanTwo(t *testing.T) {
 
 func TestResolveHandler_UsecaseReturnsError(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetFullURLByShortKeyFunc: func(context context.Context, shortKey string) (string, error) {
+		GetFullURLByShortKeyFunc: func(ctx context.Context, shortKey string) (string, error) {
 			return "", errors.New("not found")
 		},
 	}
@@ -93,7 +93,7 @@ func TestResolveHandler_UsecaseReturnsError(t *testing.T) {
 
 func TestResolveHandler_UsecaseReturnsEmptyString(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetFullURLByShortKeyFunc: func(context context.Context, shortKey string) (string, error) {
+		GetFullURLByShortKeyFunc: func(ctx context.Context, shortKey string) (string, error) {
 			return "", nil
 		},
 	}
@@ -114,7 +114,7 @@ func TestResolveHandler_Success(t *testing.T) {
 	expectedURL := "https://example.com/full-url"
 	shortKey := "abc123"
 	mockUsecase := &commontesting.MockLinkUsecase{
-		GetFullURLByShortKeyFunc: func(context context.Context, key string) (string, error) {
+		GetFullURLByShortKeyFunc: func(ctx context.Context, key string) (string, error) {
 			if key != shortKey {
 				t.Errorf("Expected shortKey '%s', got '%s'", shortKey, key)
 			}
@@ -155,7 +155,7 @@ func TestResolveHandler_ExtractsShortKeyCorrectly(t *testing.T) {
 		t.Run(testCase.path, func(t *testing.T) {
 			var receivedKey string
 			mockUsecase := &commontesting.MockLinkUsecase{
-				GetFullURLByShortKeyFunc: func(context context.Context, key string) (string, error) {
+				GetFullURLByShortKeyFunc: func(ctx context.Context, key string) (string, error) {
 					receivedKey = key
 					return "https://example.com", nil
 				},

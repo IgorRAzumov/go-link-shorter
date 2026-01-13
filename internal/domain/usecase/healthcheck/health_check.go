@@ -14,6 +14,6 @@ func NewHealthCheckUsecase(service service.HealthCheckService) *Usecase {
 	return &Usecase{service: service}
 }
 
-func (usecase *Usecase) CheckSystemConnections(context context.Context) (bool, error) {
-	return usecase.service.CheckStorageConnection(context)
+func (usecase *Usecase) CheckSystemConnections(ctx context.Context) (bool, error) {
+	return usecase.service.CheckStorageConnection(ctx)
 }

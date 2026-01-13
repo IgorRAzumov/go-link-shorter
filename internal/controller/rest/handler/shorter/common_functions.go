@@ -25,7 +25,7 @@ func GenerateShortenURL(baseURL string, shortKey string, request *http.Request) 
 	return result
 }
 
-func GenerateShortKey(body string, context context.Context, writer http.ResponseWriter, usecase usecase.LinkUsecase) (string, error) {
+func GenerateShortKey(body string, ctx context.Context, writer http.ResponseWriter, usecase usecase.LinkUsecase) (string, error) {
 	originalURL, err := parseURL(body)
 	log.Logger.Debug().Msg("generate originalURL: " + body)
 	if err != nil {
@@ -33,7 +33,7 @@ func GenerateShortKey(body string, context context.Context, writer http.Response
 		return "", err
 	}
 
-	shortKey, err := usecase.CreateShortKey(context, common.NormalizeURL(originalURL.String()))
+	shortKey, err := usecase.CreateShortKey(ctx, common.NormalizeURL(originalURL.String()))
 	if err != nil {
 		var conflictErr *model.URLConflictError
 		if !errors.As(err, &conflictErr) {

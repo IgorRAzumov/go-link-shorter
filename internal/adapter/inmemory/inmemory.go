@@ -16,7 +16,7 @@ type LinkStorage struct {
 	linksByID  sync.Map
 	linksByURL sync.Map
 	filePath   string
-	mutex      sync.RWMutex
+	mu         sync.RWMutex
 }
 
 func NewInMemoryFileStorage(filePath string) (*LinkStorage, error) {
@@ -31,9 +31,9 @@ func NewInMemoryFileStorage(filePath string) (*LinkStorage, error) {
 	return storage, nil
 }
 
-func (storage *LinkStorage) GetByShortKey(context context.Context, shortURL string) string {
-	storage.mutex.RLock()
-	defer storage.mutex.RUnlock()
+func (storage *LinkStorage) GetByShortKey(ctx context.Context, shortURL string) string {
+	storage.mu.RLock()
+	defer storage.mu.RUnlock()
 
 	log.Debug().Str("short_key", shortURL).Msg("storage: GetByShortKey")
 	value, _ := storage.linksByID.Load(shortURL)
@@ -43,18 +43,18 @@ func (storage *LinkStorage) GetByShortKey(context context.Context, shortURL stri
 	return ""
 }
 
-func (storage *LinkStorage) IsExistShortKey(context context.Context, shortKey string) bool {
-	storage.mutex.RLock()
-	defer storage.mutex.RUnlock()
+func (storage *LinkStorage) IsExistShortKey(ctx context.Context, shortKey string) bool {
+	storage.mu.RLock()
+	defer storage.mu.RUnlock()
 
 	log.Debug().Str("short_key", shortKey).Msg("storage: IsExistShortKey")
 	_, ok := storage.linksByID.Load(shortKey)
 	return ok
 }
 
-func (storage *LinkStorage) GetShortKeyByURL(context context.Context, URL string) string {
-	storage.mutex.RLock()
-	defer storage.mutex.RUnlock()
+func (storage *LinkStorage) GetShortKeyByURL(ctx context.Context, URL string) string {
+	storage.mu.RLock()
+	defer storage.mu.RUnlock()
 
 	log.Debug().Str("url", URL).Msg("storage: GetByURL")
 	value, ok := storage.linksByURL.Load(URL)
@@ -66,9 +66,9 @@ func (storage *LinkStorage) GetShortKeyByURL(context context.Context, URL string
 	return ""
 }
 
-func (storage *LinkStorage) Save(context context.Context, domainLink *model.Link) error {
-	storage.mutex.Lock()
-	defer storage.mutex.Unlock()
+func (storage *LinkStorage) Save(ctx context.Context, domainLink *model.Link) error {
+	storage.mu.Lock()
+	defer storage.mu.Unlock()
 
 	link := adapter.FromDomainLink(domainLink)
 	link.UUID = uuid.New().String()
@@ -83,13 +83,13 @@ func (storage *LinkStorage) Save(context context.Context, domainLink *model.Link
 	return nil
 }
 
-func (storage *LinkStorage) BatchSave(context context.Context, links []*model.Link) error {
+func (storage *LinkStorage) BatchSave(ctx context.Context, links []*model.Link) error {
 	if len(links) == 0 {
 		return nil
 	}
 
-	storage.mutex.Lock()
-	defer storage.mutex.Unlock()
+	storage.mu.Lock()
+	defer storage.mu.Unlock()
 
 	for _, domainLink := range links {
 		link := adapter.FromDomainLink(domainLink)
@@ -107,8 +107,8 @@ func (storage *LinkStorage) BatchSave(context context.Context, links []*model.Li
 }
 
 func (storage *LinkStorage) loadFromFile() error {
-	storage.mutex.Lock()
-	defer storage.mutex.Unlock()
+	storage.mu.Lock()
+	defer storage.mu.Unlock()
 
 	if _, err := os.Stat(storage.filePath); os.IsNotExist(err) {
 		log.Info().Str("file_path", storage.filePath).Msg("Storage file does not exist, starting with empty storage")

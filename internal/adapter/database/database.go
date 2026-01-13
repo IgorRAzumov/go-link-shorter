@@ -157,32 +157,27 @@ func (storage *Storage) Save(ctx context.Context, link *model.Link) error {
 		return nil
 	}
 
-	normalizedURL := common.NormalizeURL(link.FullURL)
-	linkUUID := uuid.New().String()
+	linkUUID := uuid.NewString()
 
 	_, err := storage.db.ExecContext(ctx,
 		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3)",
-		linkUUID, link.ShortKey, normalizedURL)
+		linkUUID, link.ShortKey, link.FullURL)
 	if err != nil {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) {
 			if pqErr.Code == pgerrcode.UniqueViolation {
-				if pqErr.Constraint == "idx_links_full_url_unique" {
-					existingShortKey := storage.GetShortKeyByURL(ctx, normalizedURL)
-					if existingShortKey != "" {
-						return &model.URLConflictError{ExistingShortKey: existingShortKey}
-					}
-					return model.ErrURLConflict
+				existingShortKey := storage.GetShortKeyByURL(ctx, link.FullURL)
+				if existingShortKey != "" {
+					return &model.URLConflictError{ExistingShortKey: existingShortKey}
 				}
-				if pqErr.Constraint == "links_short_key_key" {
-					existingURL := storage.GetByShortKey(ctx, link.ShortKey)
-					if existingURL == normalizedURL {
-						return &model.URLConflictError{ExistingShortKey: link.ShortKey}
-					}
+				existingURL := storage.GetByShortKey(ctx, link.ShortKey)
+				if existingURL == link.FullURL {
+					return &model.URLConflictError{ExistingShortKey: link.ShortKey}
 				}
+				return model.ErrURLConflict
 			}
 		}
-		log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", normalizedURL).Msg("Failed to save link")
+		log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", link.FullURL).Msg("Failed to save link")
 		return err
 	}
 	return nil
@@ -223,30 +218,25 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) erro
 	}(stmt)
 
 	for _, link := range links {
-		normalizedURL := common.NormalizeURL(link.FullURL)
 		linkUUID := uuid.New().String()
 
-		_, err := stmt.ExecContext(ctx, linkUUID, link.ShortKey, normalizedURL)
+		_, err := stmt.ExecContext(ctx, linkUUID, link.ShortKey, link.FullURL)
 		if err != nil {
 			var pqErr *pq.Error
 			if errors.As(err, &pqErr) {
 				if pqErr.Code == pgerrcode.UniqueViolation {
-					if pqErr.Constraint == "idx_links_full_url_unique" {
-						existingShortKey := storage.GetShortKeyByURL(ctx, normalizedURL)
-						if existingShortKey != "" {
-							return &model.URLConflictError{ExistingShortKey: existingShortKey}
-						}
-						return model.ErrURLConflict
+					existingShortKey := storage.GetShortKeyByURL(ctx, link.FullURL)
+					if existingShortKey != "" {
+						return &model.URLConflictError{ExistingShortKey: existingShortKey}
 					}
-					if pqErr.Constraint == "links_short_key_key" {
-						existingURL := storage.GetByShortKey(ctx, link.ShortKey)
-						if existingURL == normalizedURL {
-							return &model.URLConflictError{ExistingShortKey: link.ShortKey}
-						}
+					existingURL := storage.GetByShortKey(ctx, link.ShortKey)
+					if existingURL == link.FullURL {
+						return &model.URLConflictError{ExistingShortKey: link.ShortKey}
 					}
+					return model.ErrURLConflict
 				}
 			}
-			log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", normalizedURL).Msg("Failed to save link in batch")
+			log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", link.FullURL).Msg("Failed to save link in batch")
 			return err
 		}
 	}

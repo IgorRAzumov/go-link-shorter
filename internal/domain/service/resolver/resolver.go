@@ -15,13 +15,13 @@ func NewResolverService(repository repository.LinkRepository) *Service {
 	return &Service{repository}
 }
 
-func (service *Service) GetFullLink(context context.Context, shortKey string) (string, error) {
-	if shortKey == "" || !service.linkRepo.IsExistShortKey(context, shortKey) {
+func (service *Service) GetFullLink(ctx context.Context, shortKey string) (string, error) {
+	if shortKey == "" || !service.linkRepo.IsExistShortKey(ctx, shortKey) {
 		return "", fmt.Errorf("unknown shortKey: %s", shortKey)
 	}
-	return service.linkRepo.GetByShortKey(context, shortKey), nil
+	return service.linkRepo.GetByShortKey(ctx, shortKey), nil
 }
 
-func (service *Service) GetShortKeyByURL(context context.Context, URL string) string {
-	return service.linkRepo.GetShortKeyByURL(context, URL)
+func (service *Service) GetShortKeyByURL(ctx context.Context, URL string) string {
+	return service.linkRepo.GetShortKeyByURL(ctx, URL)
 }
