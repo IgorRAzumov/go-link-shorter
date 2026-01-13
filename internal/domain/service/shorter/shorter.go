@@ -20,7 +20,7 @@ func NewShorterService(repository repository.LinkRepository) *Service {
 }
 
 func (service *Service) CreateShortKey(context context.Context, URL string) (string, error) {
-	shortKey := generateShortKey(URL)
+	shortKey := service.GenerateShortKey(URL)
 	log.Debug().Str("short_key", shortKey).Str("url", URL).Msg("created shortKey")
 	if shortKey == "" {
 		return "", errors.New("short key creation error")
@@ -29,7 +29,11 @@ func (service *Service) CreateShortKey(context context.Context, URL string) (str
 	return shortKey, nil
 }
 
-func generateShortKey(URL string) string {
+func (service *Service) GenerateShortKey(URL string) string {
 	hash := sha256.Sum256([]byte(URL))
 	return base64.RawURLEncoding.EncodeToString(hash[:8])
+}
+
+func (service *Service) CreateShortKeys(context context.Context, links []*model.Link) {
+	service.linkRepo.BatchSave(context, links)
 }

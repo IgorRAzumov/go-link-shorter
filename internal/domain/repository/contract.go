@@ -14,6 +14,8 @@ type LinkRepository interface {
 	IsExistShortKey(context context.Context, shortURL string) bool
 
 	Save(context context.Context, link *model.Link)
+
+	BatchSave(context context.Context, links []*model.Link)
 }
 
 type HealthCheckRepository interface {

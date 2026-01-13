@@ -2,7 +2,10 @@ package link
 
 import (
 	"context"
+	"errors"
 
+	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service"
 )
 
@@ -35,4 +38,35 @@ func (usecase *Usecase) CreateShortKey(context context.Context, URL string) (str
 
 func (usecase *Usecase) GetBaseURL() string {
 	return usecase.baseURL
+}
+
+func (usecase *Usecase) CreateShortKeysBatch(context context.Context, urls []string) (map[string]string, error) {
+	result := make(map[string]string)
+	linksToSave := make([]*model.Link, 0)
+
+	for _, url := range urls {
+		normalizedURL := common.NormalizeURL(url)
+		existedShortKey := usecase.resolver.GetShortKeyByURL(context, normalizedURL)
+		if existedShortKey != "" {
+			result[normalizedURL] = existedShortKey
+			continue
+		}
+
+		shortKey := usecase.shorter.GenerateShortKey(normalizedURL)
+		if shortKey == "" {
+			return nil, errors.New("short key creation error")
+		}
+
+		result[normalizedURL] = shortKey
+		linksToSave = append(linksToSave, &model.Link{
+			ShortKey: shortKey,
+			FullURL:  normalizedURL,
+		})
+	}
+
+	if len(linksToSave) > 0 {
+		usecase.shorter.CreateShortKeys(context, linksToSave)
+	}
+
+	return result, nil
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/healthcheck"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/resolver"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter"
-	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middlewear"
+	middleware "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middlewear"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middlewear/gzip"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 	"github.com/go-chi/chi/v5"
@@ -18,6 +18,7 @@ func NewRouter(linkUsecase usecase.LinkUsecase, healthCheck usecase.HealthCheckU
 	router.Use(middleware.HTTPLogger, gzip.GZIP)
 	router.Post("/", shorter.Handler(linkUsecase))
 	router.Post("/api/shorten", shorter.APIHandler(linkUsecase))
+	router.Post("/api/shorten/batch", shorter.BatchAPIHandler(linkUsecase))
 	router.Get("/{shortKey}", resolver.Handler(linkUsecase))
 	router.Get("/ping", healthcheck.Handler(healthCheck))
 	return router

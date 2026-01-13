@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
@@ -163,5 +164,55 @@ func (storage *Storage) Save(ctx context.Context, link *model.Link) {
 		linkUUID, link.ShortKey, normalizedURL)
 	if err != nil {
 		log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", normalizedURL).Msg("Failed to save link")
+	}
+}
+
+func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) {
+	if storage.db == nil {
+		return
+	}
+
+	if len(links) == 0 {
+		return
+	}
+
+	tx, err := storage.db.BeginTx(ctx, nil)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to begin transaction")
+		return
+	}
+
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+			log.Error().Err(err).Msg("Failed to rollback transaction")
+		}
+	}()
+
+	stmt, err := tx.PrepareContext(ctx,
+		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3) ON CONFLICT (short_key) DO UPDATE SET full_url = EXCLUDED.full_url")
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to prepare batch insert statement")
+		return
+	}
+	defer func(stmt *sql.Stmt) {
+		err := stmt.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to close statement")
+		}
+	}(stmt)
+
+	for _, link := range links {
+		normalizedURL := common.NormalizeURL(link.FullURL)
+		linkUUID := uuid.New().String()
+
+		_, err := stmt.ExecContext(ctx, linkUUID, link.ShortKey, normalizedURL)
+		if err != nil {
+			log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", normalizedURL).Msg("Failed to save link in batch")
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Error().Err(err).Msg("Failed to commit transaction")
 	}
 }
