@@ -21,14 +21,14 @@ func NewShorterService(repository repository.LinkRepository) *Service {
 	return &Service{repository}
 }
 
-func (service *Service) CreateShortKey(ctx context.Context, URL string) (string, error) {
+func (service *Service) CreateShortKey(ctx context.Context, URL string, userID string) (string, error) {
 	normalizedURL := urlutil.NormalizeURL(URL)
 	shortKey := service.GenerateShortKey(normalizedURL)
 	log.Debug().Str("short_key", shortKey).Str("url", normalizedURL).Msg("created shortKey")
 	if shortKey == "" {
 		return "", model.ErrShortKeyCreation
 	}
-	err := service.linkRepo.Save(ctx, &model.Link{ShortKey: shortKey, FullURL: normalizedURL})
+	err := service.linkRepo.Save(ctx, &model.Link{ShortKey: shortKey, FullURL: normalizedURL, UserID: userID})
 	if err != nil {
 		return "", err
 	}
@@ -44,8 +44,8 @@ func (service *Service) CreateShortKeys(ctx context.Context, links []*model.Link
 	return service.linkRepo.BatchSave(ctx, links)
 }
 
-func (service *Service) ProcessBatchShortenRequests(ctx context.Context, requests []model.BatchShortenRequest, resolver service.ResolverService) ([]model.BatchShortenResult, error) {
-	normalizedMap, urlToShortKey, linksToSave := service.prepareBatchData(requests, ctx, resolver)
+func (service *Service) ProcessBatchShortenRequests(ctx context.Context, requests []model.BatchShortenRequest, resolver service.ResolverService, userID string) ([]model.BatchShortenResult, error) {
+	normalizedMap, urlToShortKey, linksToSave := service.prepareBatchData(requests, ctx, resolver, userID)
 
 	if err := service.saveBatchLinks(ctx, linksToSave, urlToShortKey); err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (service *Service) ProcessBatchShortenRequests(ctx context.Context, request
 	return service.buildBatchResults(requests, normalizedMap, urlToShortKey), nil
 }
 
-func (service *Service) prepareBatchData(requests []model.BatchShortenRequest, ctx context.Context, resolver service.ResolverService) (map[string]string, map[string]string, []*model.Link) {
+func (service *Service) prepareBatchData(requests []model.BatchShortenRequest, ctx context.Context, resolver service.ResolverService, userID string) (map[string]string, map[string]string, []*model.Link) {
 	normalizedMap := make(map[string]string, len(requests))
 	urlToShortKey := make(map[string]string)
 	linksToSave := make([]*model.Link, 0)
@@ -84,6 +84,7 @@ func (service *Service) prepareBatchData(requests []model.BatchShortenRequest, c
 		linksToSave = append(linksToSave, &model.Link{
 			ShortKey: shortKey,
 			FullURL:  normalizedURL,
+			UserID:   userID,
 		})
 	}
 

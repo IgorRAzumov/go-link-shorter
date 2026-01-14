@@ -19,7 +19,7 @@ import (
 )
 
 func TestShortenHandler_WrongMethod(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{}
+	mockUsecase := &commontesting.MockLinkCreateUsecase{}
 	handler := Handler(mockUsecase)
 
 	methods := []string{http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPatch}
@@ -52,7 +52,7 @@ func TestShortenHandler_WrongContentType(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
-			mockUsecase := &commontesting.MockLinkUsecase{
+			mockUsecase := &commontesting.MockLinkCreateUsecase{
 				GetBaseURLFunc: func() string {
 					return "http://localhost:8080"
 				},
@@ -86,7 +86,7 @@ func TestShortenHandler_WrongContentType(t *testing.T) {
 }
 
 func TestShortenHandler_EmptyBody(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{}
+	mockUsecase := &commontesting.MockLinkCreateUsecase{}
 	handler := Handler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(""))
@@ -101,7 +101,7 @@ func TestShortenHandler_EmptyBody(t *testing.T) {
 }
 
 func TestShortenHandler_BodyReadError(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{}
+	mockUsecase := &commontesting.MockLinkCreateUsecase{}
 	handler := Handler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/", &errorReader{})
@@ -116,7 +116,7 @@ func TestShortenHandler_BodyReadError(t *testing.T) {
 }
 
 func TestShortenHandler_InvalidURL(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{}
+	mockUsecase := &commontesting.MockLinkCreateUsecase{}
 	handler := Handler(mockUsecase)
 
 	testCases := []struct {
@@ -147,7 +147,7 @@ func TestShortenHandler_InvalidURL(t *testing.T) {
 }
 
 func TestShortenHandler_CreateShortKeyReturnsError(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return "", errors.New("generation short link error")
 		},
@@ -167,7 +167,7 @@ func TestShortenHandler_CreateShortKeyReturnsError(t *testing.T) {
 
 func TestShortenHandler_Success_HTTP(t *testing.T) {
 	expectedShortKey := "abc123"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
@@ -205,7 +205,7 @@ func TestShortenHandler_Success_HTTP(t *testing.T) {
 
 func TestShortenHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 	expectedShortKey := "xyz789"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return ""
 		},
@@ -235,7 +235,7 @@ func TestShortenHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 
 func TestShortenHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
 	expectedShortKey := "def456"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return ""
 		},
@@ -266,7 +266,7 @@ func TestShortenHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
 
 func TestShortenHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.T) {
 	expectedShortKey := "ghi789"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return ""
 		},
@@ -297,7 +297,7 @@ func TestShortenHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.
 
 func TestShortenHandler_Success_HTTPS_TLS(t *testing.T) {
 	expectedShortKey := "xyz789"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return "https://example.com"
 		},
@@ -328,7 +328,7 @@ func TestShortenHandler_Success_HTTPS_TLS(t *testing.T) {
 
 func TestShortenHandler_Success_HTTPS_XForwardedProto(t *testing.T) {
 	expectedShortKey := "def456"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return "https://example.com"
 		},
@@ -359,7 +359,7 @@ func TestShortenHandler_Success_HTTPS_XForwardedProto(t *testing.T) {
 
 func TestShortenHandler_ResponseWriteError(t *testing.T) {
 	expectedShortKey := "test123"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
@@ -568,7 +568,7 @@ func TestSendConflictResponse_WriteError(t *testing.T) {
 }
 
 func TestShortenHandler_URLCreatesWithCorrectFormat(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return "http://myserver.com:9090"
 		},
@@ -597,7 +597,7 @@ func TestShortenHandler_URLCreatesWithCorrectFormat(t *testing.T) {
 }
 
 func TestShortenHandler_NormalizesURL(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
@@ -624,7 +624,7 @@ func TestShortenHandler_NormalizesURL(t *testing.T) {
 }
 
 func TestShortenHandler_HandlesBodyWithWhitespace(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
@@ -719,7 +719,7 @@ func TestAPIHandler_WrongContentType(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
-			mockUsecase := &commontesting.MockLinkUsecase{}
+			mockUsecase := &commontesting.MockLinkCreateUsecase{}
 			handler := APIHandler(mockUsecase)
 
 			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
@@ -750,7 +750,7 @@ func TestAPIHandler_InvalidJSON(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
-			mockUsecase := &commontesting.MockLinkUsecase{}
+			mockUsecase := &commontesting.MockLinkCreateUsecase{}
 			handler := APIHandler(mockUsecase)
 
 			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(testCase.body))
@@ -779,7 +779,7 @@ func TestAPIHandler_InvalidURL(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
-			mockUsecase := &commontesting.MockLinkUsecase{}
+			mockUsecase := &commontesting.MockLinkCreateUsecase{}
 			handler := APIHandler(mockUsecase)
 
 			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(testCase.body))
@@ -796,7 +796,7 @@ func TestAPIHandler_InvalidURL(t *testing.T) {
 }
 
 func TestAPIHandler_CreateShortKeyReturnsError(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return "", errors.New("CreateShortKey error")
 		},
@@ -816,7 +816,7 @@ func TestAPIHandler_CreateShortKeyReturnsError(t *testing.T) {
 
 func TestAPIHandler_Success_WithBaseURL(t *testing.T) {
 	expectedShortKey := "abc123"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
@@ -856,7 +856,7 @@ func TestAPIHandler_Success_WithBaseURL(t *testing.T) {
 
 func TestAPIHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 	expectedShortKey := "xyz789"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return ""
 		},
@@ -889,7 +889,7 @@ func TestAPIHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 
 func TestAPIHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
 	expectedShortKey := "def456"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return ""
 		},
@@ -923,7 +923,7 @@ func TestAPIHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
 
 func TestAPIHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.T) {
 	expectedShortKey := "ghi789"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return ""
 		},
@@ -1034,7 +1034,7 @@ func TestGenerateShortenURL_WithoutBaseURL_HTTP_WhenXForwardedProtoIsHTTP(t *tes
 func TestGenerateShortKey_Success(t *testing.T) {
 	body := "https://example.com"
 	expectedShortKey := "abc123"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			if URL != "https://example.com" {
 				t.Errorf("Expected URL 'https://example.com', got '%s'", URL)
@@ -1060,7 +1060,7 @@ func TestGenerateShortKey_Success(t *testing.T) {
 
 func TestGenerateShortKey_InvalidURL(t *testing.T) {
 	body := "not-a-url"
-	mockUsecase := &commontesting.MockLinkUsecase{}
+	mockUsecase := &commontesting.MockLinkCreateUsecase{}
 	writer := httptest.NewRecorder()
 	ctx := context.Background()
 
@@ -1079,7 +1079,7 @@ func TestGenerateShortKey_InvalidURL(t *testing.T) {
 
 func TestGenerateShortKey_EmptyURL(t *testing.T) {
 	body := ""
-	mockUsecase := &commontesting.MockLinkUsecase{}
+	mockUsecase := &commontesting.MockLinkCreateUsecase{}
 	writer := httptest.NewRecorder()
 	ctx := context.Background()
 
@@ -1098,7 +1098,7 @@ func TestGenerateShortKey_EmptyURL(t *testing.T) {
 
 func TestGenerateShortKey_CreateShortKeyError(t *testing.T) {
 	body := "https://example.com"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return "", errors.New("CreateShortKey error")
 		},
@@ -1122,7 +1122,7 @@ func TestGenerateShortKey_CreateShortKeyError(t *testing.T) {
 func TestGenerateShortKey_NormalizesURL(t *testing.T) {
 	body := "https://example.com/"
 	expectedShortKey := "normalized123"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			if URL != "https://example.com" {
 				t.Errorf("Expected normalized URL 'https://example.com', got '%s'", URL)
@@ -1146,7 +1146,7 @@ func TestGenerateShortKey_NormalizesURL(t *testing.T) {
 func TestGenerateShortKey_TrimsWhitespace(t *testing.T) {
 	body := "  https://example.com  \n"
 	expectedShortKey := "trimmed123"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			if URL != "https://example.com" {
 				t.Errorf("Expected normalized URL 'https://example.com', got '%s'", URL)
@@ -1169,7 +1169,7 @@ func TestGenerateShortKey_TrimsWhitespace(t *testing.T) {
 
 func TestShortenHandler_URLConflict(t *testing.T) {
 	existingShortKey := "existing-key-123"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
@@ -1204,7 +1204,7 @@ func TestShortenHandler_URLConflict(t *testing.T) {
 
 func TestAPIHandler_URLConflict(t *testing.T) {
 	existingShortKey := "existing-api-key-456"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		GetBaseURLFunc: func() string {
 			return "http://localhost:8080"
 		},
@@ -1242,7 +1242,7 @@ func TestAPIHandler_URLConflict(t *testing.T) {
 func TestGenerateShortKey_URLConflict(t *testing.T) {
 	body := "https://example.com"
 	existingShortKey := "conflict-key-789"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
 			return "", &domainmodel.URLConflictError{ExistingShortKey: existingShortKey}
 		},

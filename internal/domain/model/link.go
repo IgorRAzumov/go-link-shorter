@@ -3,6 +3,7 @@ package model
 type Link struct {
 	ShortKey string
 	FullURL  string
+	UserID   string
 }
 
 type BatchShortenRequest struct {

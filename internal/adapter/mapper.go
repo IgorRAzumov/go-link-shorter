@@ -8,5 +8,6 @@ func FromDomainLink(domainLink *model.Link) *Link {
 	return &Link{
 		ShortKey: domainLink.ShortKey,
 		FullURL:  domainLink.FullURL,
+		UserID:   domainLink.UserID,
 	}
 }

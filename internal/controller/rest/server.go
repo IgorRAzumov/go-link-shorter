@@ -3,12 +3,13 @@ package rest
 import (
 	"net/http"
 
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 	"github.com/rs/zerolog/log"
 )
 
-func Start(linkUsecase usecase.LinkUsecase, healthCheckUsecase usecase.HealthCheckUsecase, serverAddress string) {
-	router := NewRouter(linkUsecase, healthCheckUsecase)
+func Start(linkCreateUsecase usecase.LinkCreateUsecase, linkReadUsecase usecase.LinkReadUsecase, healthCheckUsecase usecase.HealthCheckUsecase, authService service.AuthService, serverAddress string) {
+	router := NewRouter(linkCreateUsecase, linkReadUsecase, healthCheckUsecase, authService)
 	if err := http.ListenAndServe(serverAddress, router); err != nil {
 		log.Fatal().Err(err).Msg("Http server start error")
 	}

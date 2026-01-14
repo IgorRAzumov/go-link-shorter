@@ -486,3 +486,196 @@ func TestStorage_BatchSave_WithURLConflict(t *testing.T) {
 		t.Error("Second link should not have been saved")
 	}
 }
+
+func TestStorage_GetByUserID_EmptyResult(t *testing.T) {
+	databaseDSN := os.Getenv("TEST_DATABASE_DSN")
+	if databaseDSN == "" {
+		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
+	}
+
+	storage, err := NewStorage(databaseDSN)
+	if err != nil {
+		t.Fatalf("NewStorage failed: %v", err)
+	}
+	defer func(storage *Storage) {
+		if closeError := storage.Close(); closeError != nil {
+			t.Fatalf("Failed to close storage")
+		}
+	}(storage)
+
+	ctx := context.Background()
+	links, err := storage.GetByUserID(ctx, "non-existent-user-id")
+	if err != nil {
+		t.Fatalf("GetByUserID should not return error, got: %v", err)
+	}
+	if len(links) != 0 {
+		t.Errorf("Expected 0 links for non-existent user, got %d", len(links))
+	}
+}
+
+func TestStorage_GetByUserID_SingleUser(t *testing.T) {
+	databaseDSN := os.Getenv("TEST_DATABASE_DSN")
+	if databaseDSN == "" {
+		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
+	}
+
+	storage, err := NewStorage(databaseDSN)
+	if err != nil {
+		t.Fatalf("NewStorage failed: %v", err)
+	}
+	defer func(storage *Storage) {
+		if closeError := storage.Close(); closeError != nil {
+			t.Fatalf("Failed to close storage")
+		}
+	}(storage)
+
+	ctx := context.Background()
+	userID := "test-user-123"
+	testLinks := []*model.Link{
+		{
+			ShortKey: "getbyuserid-key1",
+			FullURL:  "https://getbyuserid1.com",
+			UserID:   userID,
+		},
+		{
+			ShortKey: "getbyuserid-key2",
+			FullURL:  "https://getbyuserid2.com",
+			UserID:   userID,
+		},
+		{
+			ShortKey: "getbyuserid-key3",
+			FullURL:  "https://getbyuserid3.com",
+			UserID:   userID,
+		},
+	}
+
+	for _, link := range testLinks {
+		if err := storage.Save(ctx, link); err != nil {
+			t.Fatalf("Failed to save link: %v", err)
+		}
+	}
+
+	links, err := storage.GetByUserID(ctx, userID)
+	if err != nil {
+		t.Fatalf("GetByUserID should not return error, got: %v", err)
+	}
+	if len(links) != len(testLinks) {
+		t.Errorf("Expected %d links, got %d", len(testLinks), len(links))
+	}
+
+	linkMap := make(map[string]*model.Link)
+	for _, link := range links {
+		linkMap[link.ShortKey] = link
+	}
+
+	for _, expectedLink := range testLinks {
+		foundLink, exists := linkMap[expectedLink.ShortKey]
+		if !exists {
+			t.Errorf("Link with key '%s' not found", expectedLink.ShortKey)
+			continue
+		}
+		if foundLink.FullURL != expectedLink.FullURL {
+			t.Errorf("Expected URL '%s' for key '%s', got '%s'", expectedLink.FullURL, expectedLink.ShortKey, foundLink.FullURL)
+		}
+		if foundLink.UserID != userID {
+			t.Errorf("Expected UserID '%s' for key '%s', got '%s'", userID, expectedLink.ShortKey, foundLink.UserID)
+		}
+	}
+}
+
+func TestStorage_GetByUserID_MultipleUsers(t *testing.T) {
+	databaseDSN := os.Getenv("TEST_DATABASE_DSN")
+	if databaseDSN == "" {
+		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
+	}
+
+	storage, err := NewStorage(databaseDSN)
+	if err != nil {
+		t.Fatalf("NewStorage failed: %v", err)
+	}
+	defer func(storage *Storage) {
+		if closeError := storage.Close(); closeError != nil {
+			t.Fatalf("Failed to close storage")
+		}
+	}(storage)
+
+	ctx := context.Background()
+	user1ID := "test-user-1"
+	user2ID := "test-user-2"
+
+	user1Links := []*model.Link{
+		{
+			ShortKey: "multiuser-user1-key1",
+			FullURL:  "https://multiuser-user1-1.com",
+			UserID:   user1ID,
+		},
+		{
+			ShortKey: "multiuser-user1-key2",
+			FullURL:  "https://multiuser-user1-2.com",
+			UserID:   user1ID,
+		},
+	}
+
+	user2Links := []*model.Link{
+		{
+			ShortKey: "multiuser-user2-key1",
+			FullURL:  "https://multiuser-user2-1.com",
+			UserID:   user2ID,
+		},
+	}
+
+	for _, link := range user1Links {
+		if err := storage.Save(ctx, link); err != nil {
+			t.Fatalf("Failed to save user1 link: %v", err)
+		}
+	}
+
+	for _, link := range user2Links {
+		if err := storage.Save(ctx, link); err != nil {
+			t.Fatalf("Failed to save user2 link: %v", err)
+		}
+	}
+
+	user1Result, err := storage.GetByUserID(ctx, user1ID)
+	if err != nil {
+		t.Fatalf("GetByUserID should not return error for user1, got: %v", err)
+	}
+	if len(user1Result) != len(user1Links) {
+		t.Errorf("Expected %d links for user1, got %d", len(user1Links), len(user1Result))
+	}
+
+	user2Result, err := storage.GetByUserID(ctx, user2ID)
+	if err != nil {
+		t.Fatalf("GetByUserID should not return error for user2, got: %v", err)
+	}
+	if len(user2Result) != len(user2Links) {
+		t.Errorf("Expected %d links for user2, got %d", len(user2Links), len(user2Result))
+	}
+
+	// Verify user1 links don't contain user2 links
+	for _, link := range user1Result {
+		if link.UserID != user1ID {
+			t.Errorf("User1 result contains link with wrong UserID: %s", link.UserID)
+		}
+	}
+
+	// Verify user2 links don't contain user1 links
+	for _, link := range user2Result {
+		if link.UserID != user2ID {
+			t.Errorf("User2 result contains link with wrong UserID: %s", link.UserID)
+		}
+	}
+}
+
+func TestStorage_GetByUserID_WithNilDB(t *testing.T) {
+	storage := &Storage{db: nil}
+	ctx := context.Background()
+
+	links, err := storage.GetByUserID(ctx, "test-user-id")
+	if err != nil {
+		t.Fatalf("GetByUserID should not return error with nil db, got: %v", err)
+	}
+	if len(links) != 0 {
+		t.Errorf("Expected 0 links with nil db, got %d", len(links))
+	}
+}

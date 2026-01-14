@@ -25,7 +25,7 @@ func GenerateShortenURL(baseURL string, shortKey string, request *http.Request) 
 	return result
 }
 
-func GenerateShortKey(body string, ctx context.Context, writer http.ResponseWriter, usecase usecase.LinkUsecase) (string, error) {
+func GenerateShortKey(body string, ctx context.Context, writer http.ResponseWriter, usecase usecase.LinkCreateUsecase) (string, error) {
 	originalURL, err := parseURL(body)
 	log.Logger.Debug().Msg("generate originalURL: " + body)
 	if err != nil {

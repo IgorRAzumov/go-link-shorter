@@ -83,6 +83,27 @@ func (storage *LinkStorage) Save(ctx context.Context, domainLink *model.Link) er
 	return nil
 }
 
+func (storage *LinkStorage) GetByUserID(ctx context.Context, userID string) ([]*model.Link, error) {
+	storage.mu.RLock()
+	defer storage.mu.RUnlock()
+
+	var links []*model.Link
+	storage.linksByID.Range(func(key, value interface{}) bool {
+		if link, ok := value.(*adapter.Link); ok {
+			if link.UserID == userID {
+				links = append(links, &model.Link{
+					ShortKey: link.ShortKey,
+					FullURL:  link.FullURL,
+					UserID:   link.UserID,
+				})
+			}
+		}
+		return true
+	})
+
+	return links, nil
+}
+
 func (storage *LinkStorage) BatchSave(ctx context.Context, links []*model.Link) error {
 	if len(links) == 0 {
 		return nil

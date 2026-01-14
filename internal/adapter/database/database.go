@@ -160,8 +160,8 @@ func (storage *Storage) Save(ctx context.Context, link *model.Link) error {
 	linkUUID := uuid.NewString()
 
 	_, err := storage.db.ExecContext(ctx,
-		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3)",
-		linkUUID, link.ShortKey, link.FullURL)
+		"INSERT INTO links (uuid, short_key, full_url, user_id) VALUES ($1, $2, $3, $4)",
+		linkUUID, link.ShortKey, link.FullURL, link.UserID)
 	if err != nil {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) {
@@ -205,7 +205,7 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) erro
 	}()
 
 	stmt, err := tx.PrepareContext(ctx,
-		"INSERT INTO links (uuid, short_key, full_url) VALUES ($1, $2, $3)")
+		"INSERT INTO links (uuid, short_key, full_url, user_id) VALUES ($1, $2, $3, $4)")
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to prepare batch insert statement")
 		return err
@@ -220,7 +220,7 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) erro
 	for _, link := range links {
 		linkUUID := uuid.New().String()
 
-		_, err := stmt.ExecContext(ctx, linkUUID, link.ShortKey, link.FullURL)
+		_, err := stmt.ExecContext(ctx, linkUUID, link.ShortKey, link.FullURL, link.UserID)
 		if err != nil {
 			var pqErr *pq.Error
 			if errors.As(err, &pqErr) {
@@ -246,4 +246,42 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) erro
 		return err
 	}
 	return nil
+}
+
+func (storage *Storage) GetByUserID(ctx context.Context, userID string) ([]*model.Link, error) {
+	if storage.db == nil {
+		return []*model.Link{}, nil
+	}
+
+	rows, err := storage.db.QueryContext(ctx,
+		"SELECT short_key, full_url FROM links WHERE user_id = $1 ORDER BY uuid",
+		userID)
+	if err != nil {
+		log.Error().Err(err).Str("user_id", userID).Msg("Failed to get links by user ID")
+		return nil, err
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to close rows")
+		}
+	}(rows)
+
+	var links []*model.Link
+	for rows.Next() {
+		var link model.Link
+		if err := rows.Scan(&link.ShortKey, &link.FullURL); err != nil {
+			log.Error().Err(err).Str("user_id", userID).Msg("Failed to scan link")
+			return nil, err
+		}
+		link.UserID = userID
+		links = append(links, &link)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Error().Err(err).Str("user_id", userID).Msg("Error iterating rows")
+		return nil, err
+	}
+
+	return links, nil
 }

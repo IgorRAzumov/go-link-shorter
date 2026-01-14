@@ -14,6 +14,7 @@ type Config struct {
 	BaseShortURL    string `env:"BASE_URL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	DatabaseAddress string `env:"DATABASE_DSN"`
+	SecretKey       string `env:"SECRET_KEY" env-default:"default-secret-key-change-in-production"`
 }
 
 func Load() (*Config, error) {
@@ -42,16 +43,19 @@ func extractStartConfig(cfg *Config) {
 	envBaseShortURL := cfg.BaseShortURL
 	envFileStoragePath := cfg.FileStoragePath
 	envDatabaseAddress := cfg.DatabaseAddress
+	envSecretKey := cfg.SecretKey
 
 	var serverAddressFlag string
 	var baseShortURLFlag string
 	var fileStoragePathFlag string
 	var databaseAddressFlag string
+	var secretKeyFlag string
 
 	flag.StringVar(&serverAddressFlag, "a", "localhost:8080", "server address")
 	flag.StringVar(&baseShortURLFlag, "b", "", "base shorter URL")
 	flag.StringVar(&fileStoragePathFlag, "f", "", "file storage path")
 	flag.StringVar(&databaseAddressFlag, "d", "", "database DSN")
+	flag.StringVar(&secretKeyFlag, "k", "", "secret key for cookie signing")
 	flag.Parse()
 
 	if envServerAddress == "" || envServerAddress == "localhost:8080" {
@@ -67,5 +71,10 @@ func extractStartConfig(cfg *Config) {
 	}
 	if envDatabaseAddress == "" {
 		cfg.DatabaseAddress = databaseAddressFlag
+	}
+	if envSecretKey == "" || envSecretKey == "default-secret-key-change-in-production" {
+		if secretKeyFlag != "" {
+			cfg.SecretKey = secretKeyFlag
+		}
 	}
 }

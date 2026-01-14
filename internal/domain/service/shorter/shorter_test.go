@@ -14,6 +14,7 @@ type mockLinkRepository struct {
 	isExistShortKeyFunc  func(ctx context.Context, shortURL string) bool
 	saveFunc             func(ctx context.Context, link *model.Link) error
 	batchSaveFunc        func(ctx context.Context, links []*model.Link) error
+	getByUserIDFunc      func(ctx context.Context, userID string) ([]*model.Link, error)
 }
 
 func (m *mockLinkRepository) GetByShortKey(ctx context.Context, shortURL string) string {
@@ -49,6 +50,13 @@ func (m *mockLinkRepository) BatchSave(ctx context.Context, links []*model.Link)
 		return m.batchSaveFunc(ctx, links)
 	}
 	return nil
+}
+
+func (m *mockLinkRepository) GetByUserID(ctx context.Context, userID string) ([]*model.Link, error) {
+	if m.getByUserIDFunc != nil {
+		return m.getByUserIDFunc(ctx, userID)
+	}
+	return []*model.Link{}, nil
 }
 
 func TestGenerateShortKey_ReturnsNonEmpty(t *testing.T) {
@@ -173,6 +181,7 @@ func TestCreateShortKeys_MultipleLinks(t *testing.T) {
 type mockResolverService struct {
 	getFullLinkFunc      func(ctx context.Context, shortKey string) (string, error)
 	getShortKeyByURLFunc func(ctx context.Context, url string) string
+	getByUserIDFunc      func(ctx context.Context, userID string) ([]*model.Link, error)
 }
 
 func (m *mockResolverService) GetFullLink(ctx context.Context, shortKey string) (string, error) {
@@ -187,6 +196,13 @@ func (m *mockResolverService) GetShortKeyByURL(ctx context.Context, url string) 
 		return m.getShortKeyByURLFunc(ctx, url)
 	}
 	return ""
+}
+
+func (m *mockResolverService) GetByUserID(ctx context.Context, userID string) ([]*model.Link, error) {
+	if m.getByUserIDFunc != nil {
+		return m.getByUserIDFunc(ctx, userID)
+	}
+	return []*model.Link{}, nil
 }
 
 func TestPrepareBatchData_NormalizesURLs(t *testing.T) {
@@ -204,7 +220,7 @@ func TestPrepareBatchData_NormalizesURLs(t *testing.T) {
 		{CorrelationID: "2", OriginalURL: "https://example.com"},
 	}
 
-	normalizedMap, urlToShortKey, linksToSave := service.prepareBatchData(requests, ctx, resolver)
+	normalizedMap, urlToShortKey, linksToSave := service.prepareBatchData(requests, ctx, resolver, "test-user-id")
 
 	if len(normalizedMap) != 2 {
 		t.Fatalf("Expected normalizedMap to have 2 entries, got %d", len(normalizedMap))
@@ -244,7 +260,7 @@ func TestPrepareBatchData_HandlesExistingURLs(t *testing.T) {
 		{CorrelationID: "2", OriginalURL: "https://new.com"},
 	}
 
-	normalizedMap, urlToShortKey, linksToSave := service.prepareBatchData(requests, ctx, resolver)
+	normalizedMap, urlToShortKey, linksToSave := service.prepareBatchData(requests, ctx, resolver, "test-user-id")
 
 	if len(normalizedMap) != 2 {
 		t.Fatalf("Expected normalizedMap to have 2 entries, got %d", len(normalizedMap))
@@ -279,7 +295,7 @@ func TestPrepareBatchData_HandlesDuplicateURLs(t *testing.T) {
 		{CorrelationID: "3", OriginalURL: "https://example.com"},
 	}
 
-	_, urlToShortKey, linksToSave := service.prepareBatchData(requests, ctx, resolver)
+	_, urlToShortKey, linksToSave := service.prepareBatchData(requests, ctx, resolver, "test-user-id")
 
 	if len(linksToSave) != 1 {
 		t.Fatalf("Expected 1 link to save (duplicates removed), got %d", len(linksToSave))
@@ -490,7 +506,7 @@ func TestProcessBatchShortenRequests_Integration(t *testing.T) {
 		{CorrelationID: "3", OriginalURL: "https://new.com"},
 	}
 
-	results, err := service.ProcessBatchShortenRequests(ctx, requests, resolver)
+	results, err := service.ProcessBatchShortenRequests(ctx, requests, resolver, "test-user-id")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
