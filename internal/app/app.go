@@ -16,22 +16,23 @@ import (
 
 func Run(serverAddress, baseURL, fileStoragePath, databaseDSN, secretKey string) {
 	storage := initStorage(databaseDSN, fileStoragePath)
-	shorterService := shorter.NewShorterService(storage)
 	resolverService := resolver.NewResolverService(storage)
-	linkCreateUsecase := link.NewLinkCreateUsecase(resolverService, shorterService, baseURL)
-	linkReadUsecase := link.NewLinkReadUsecase(resolverService, baseURL)
 
-	var dataBaseStorage *database.Storage
-	if dbStorage, ok := storage.(*database.Storage); ok {
+	linkCreateUsecase := link.NewLinkCreateUsecase(resolverService, shorter.NewShorterService(storage), baseURL)
+	linkReadUsecase := link.NewLinkReadUsecase(resolverService, baseURL)
+	linkDeleteUsecase := link.NewLinkDeleteUsecase(storage)
+
+	var dataBaseStorage *database.LinkStorage
+	if dbStorage, ok := storage.(*database.LinkStorage); ok {
 		dataBaseStorage = dbStorage
 	} else {
-		dataBaseStorage = &database.Storage{}
+		dataBaseStorage = &database.LinkStorage{}
 	}
 	healthCheckService := healthcheck.NewHealthCheckService(dataBaseStorage)
 	healthCheckUsecase := healthcheckusecase.NewHealthCheckUsecase(healthCheckService)
 
 	authSvc := authservice.NewAuthService(secretKey)
-	rest.Start(linkCreateUsecase, linkReadUsecase, healthCheckUsecase, authSvc, serverAddress)
+	rest.Start(linkCreateUsecase, linkReadUsecase, linkDeleteUsecase, healthCheckUsecase, authSvc, serverAddress)
 }
 
 func initStorage(databaseDSN, fileStoragePath string) repository.LinkRepository {

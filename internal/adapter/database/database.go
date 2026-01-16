@@ -21,13 +21,13 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-type Storage struct {
+type LinkStorage struct {
 	db *sql.DB
 }
 
-func NewStorage(dsn string) (*Storage, error) {
+func NewStorage(dsn string) (*LinkStorage, error) {
 	if dsn == "" {
-		return &Storage{}, nil
+		return &LinkStorage{}, nil
 	}
 
 	db, err := sql.Open("postgres", dsn)
@@ -44,7 +44,7 @@ func NewStorage(dsn string) (*Storage, error) {
 		return nil, err
 	}
 
-	storage := &Storage{db: db}
+	storage := &LinkStorage{db: db}
 
 	if err := storage.runMigrations(); err != nil {
 		closeErr := db.Close()
@@ -58,7 +58,7 @@ func NewStorage(dsn string) (*Storage, error) {
 	return storage, nil
 }
 
-func (storage *Storage) runMigrations() error {
+func (storage *LinkStorage) runMigrations() error {
 	driver, err := postgres.WithInstance(storage.db, &postgres.Config{})
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func (storage *Storage) runMigrations() error {
 		return err
 	}
 
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return err
 	}
 
@@ -82,7 +82,7 @@ func (storage *Storage) runMigrations() error {
 	return nil
 }
 
-func (storage *Storage) CheckStorageConnection(ctx context.Context) (bool, error) {
+func (storage *LinkStorage) CheckStorageConnection(ctx context.Context) (bool, error) {
 	if storage.db == nil {
 		return false, nil
 	}
@@ -95,31 +95,30 @@ func (storage *Storage) CheckStorageConnection(ctx context.Context) (bool, error
 	return true, nil
 }
 
-func (storage *Storage) Close() error {
+func (storage *LinkStorage) Close() error {
 	if storage.db == nil {
 		return nil
 	}
 	return storage.db.Close()
 }
 
-func (storage *Storage) GetByShortKey(ctx context.Context, shortURL string) string {
+func (storage *LinkStorage) GetByShortKey(ctx context.Context, shortURL string) (fullURL string, isDeleted bool) {
 	if storage.db == nil {
-		return ""
+		return "", false
 	}
 
-	var fullURL string
-	err := storage.db.QueryRowContext(ctx, "SELECT full_url FROM links WHERE short_key = $1", shortURL).Scan(&fullURL)
+	err := storage.db.QueryRowContext(ctx, "SELECT full_url, is_deleted FROM links WHERE short_key = $1", shortURL).Scan(&fullURL, &isDeleted)
 	if err != nil {
-		if err != sql.ErrNoRows {
+		if !errors.Is(err, sql.ErrNoRows) {
 			log.Error().Err(err).Str("short_key", shortURL).Msg("Failed to get link by short key")
 		}
-		return ""
+		return "", false
 	}
 
-	return fullURL
+	return fullURL, isDeleted
 }
 
-func (storage *Storage) GetShortKeyByURL(ctx context.Context, URL string) string {
+func (storage *LinkStorage) GetShortKeyByURL(ctx context.Context, URL string) string {
 	if storage.db == nil {
 		return ""
 	}
@@ -128,7 +127,7 @@ func (storage *Storage) GetShortKeyByURL(ctx context.Context, URL string) string
 	var shortKey string
 	err := storage.db.QueryRowContext(ctx, "SELECT short_key FROM links WHERE full_url = $1", normalizedURL).Scan(&shortKey)
 	if err != nil {
-		if err != sql.ErrNoRows {
+		if !errors.Is(err, sql.ErrNoRows) {
 			log.Error().Err(err).Str("url", normalizedURL).Msg("Failed to get short key by URL")
 		}
 		return ""
@@ -137,7 +136,7 @@ func (storage *Storage) GetShortKeyByURL(ctx context.Context, URL string) string
 	return shortKey
 }
 
-func (storage *Storage) IsExistShortKey(ctx context.Context, shortURL string) bool {
+func (storage *LinkStorage) IsExistShortKey(ctx context.Context, shortURL string) bool {
 	if storage.db == nil {
 		return false
 	}
@@ -152,7 +151,7 @@ func (storage *Storage) IsExistShortKey(ctx context.Context, shortURL string) bo
 	return exists
 }
 
-func (storage *Storage) Save(ctx context.Context, link *model.Link) error {
+func (storage *LinkStorage) Save(ctx context.Context, link *model.Link) error {
 	if storage.db == nil {
 		return nil
 	}
@@ -170,7 +169,7 @@ func (storage *Storage) Save(ctx context.Context, link *model.Link) error {
 				if existingShortKey != "" {
 					return &model.URLConflictError{ExistingShortKey: existingShortKey}
 				}
-				existingURL := storage.GetByShortKey(ctx, link.ShortKey)
+				existingURL, _ := storage.GetByShortKey(ctx, link.ShortKey)
 				if existingURL == link.FullURL {
 					return &model.URLConflictError{ExistingShortKey: link.ShortKey}
 				}
@@ -183,7 +182,7 @@ func (storage *Storage) Save(ctx context.Context, link *model.Link) error {
 	return nil
 }
 
-func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) error {
+func (storage *LinkStorage) BatchSave(ctx context.Context, links []*model.Link) error {
 	if storage.db == nil {
 		return nil
 	}
@@ -229,7 +228,7 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) erro
 					if existingShortKey != "" {
 						return &model.URLConflictError{ExistingShortKey: existingShortKey}
 					}
-					existingURL := storage.GetByShortKey(ctx, link.ShortKey)
+					existingURL, _ := storage.GetByShortKey(ctx, link.ShortKey)
 					if existingURL == link.FullURL {
 						return &model.URLConflictError{ExistingShortKey: link.ShortKey}
 					}
@@ -248,13 +247,13 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) erro
 	return nil
 }
 
-func (storage *Storage) GetByUserID(ctx context.Context, userID string) ([]*model.Link, error) {
+func (storage *LinkStorage) GetByUserID(ctx context.Context, userID string) ([]*model.Link, error) {
 	if storage.db == nil {
 		return []*model.Link{}, nil
 	}
 
 	rows, err := storage.db.QueryContext(ctx,
-		"SELECT short_key, full_url FROM links WHERE user_id = $1 ORDER BY uuid",
+		"SELECT short_key, full_url FROM links WHERE user_id = $1 AND is_deleted = FALSE ORDER BY uuid",
 		userID)
 	if err != nil {
 		log.Error().Err(err).Str("user_id", userID).Msg("Failed to get links by user ID")
@@ -284,4 +283,22 @@ func (storage *Storage) GetByUserID(ctx context.Context, userID string) ([]*mode
 	}
 
 	return links, nil
+}
+
+func (storage *LinkStorage) MarkDeleted(ctx context.Context, userID string, shortKeys []string) error {
+	if storage.db == nil {
+		return nil
+	}
+
+	_, err := storage.db.ExecContext(
+		ctx,
+		"UPDATE links SET is_deleted = TRUE WHERE user_id = $1 AND short_key = ANY($2)",
+		userID,
+		pq.Array(shortKeys),
+	)
+	if err != nil {
+		log.Error().Err(err).Str("user_id", userID).Int("count", len(shortKeys)).Msg("Failed to mark links deleted")
+		return err
+	}
+	return nil
 }

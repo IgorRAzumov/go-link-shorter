@@ -79,7 +79,7 @@ func TestUsecase_CheckSystemConnections_WithError(t *testing.T) {
 	if err == nil {
 		t.Fatal("CheckSystemConnections should return error")
 	}
-	if err != expectedError {
+	if !errors.Is(err, expectedError) {
 		t.Errorf("Expected error '%v', got '%v'", expectedError, err)
 	}
 	if result {

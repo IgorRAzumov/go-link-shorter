@@ -24,7 +24,7 @@ func TestNewStorage(t *testing.T) {
 	if storage == nil {
 		t.Fatal("NewStorage returned nil")
 	}
-	defer func(storage *Storage) {
+	defer func(storage *LinkStorage) {
 		if closeError := storage.Close(); closeError != nil {
 			t.Fatalf("Failed to close storage")
 		}
@@ -40,7 +40,7 @@ func TestNewStorage_WithEmptyDSN(t *testing.T) {
 		t.Fatal("NewStorage returned nil")
 	}
 	if storage.db != nil {
-		t.Error("Storage.db should be nil when DSN is empty")
+		t.Error("LinkStorage.db should be nil when DSN is empty")
 	}
 }
 
@@ -71,7 +71,7 @@ func TestStorage_CheckStorageConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStorage failed: %v", err)
 	}
-	defer func(storage *Storage) {
+	defer func(storage *LinkStorage) {
 		if closeError := storage.Close(); closeError != nil {
 			t.Fatalf("Failed to close storage")
 		}
@@ -88,7 +88,7 @@ func TestStorage_CheckStorageConnection(t *testing.T) {
 }
 
 func TestStorage_CheckStorageConnection_WithNilDB(t *testing.T) {
-	storage := &Storage{db: nil}
+	storage := &LinkStorage{db: nil}
 	ctx := context.Background()
 
 	result, err := storage.CheckStorageConnection(ctx)
@@ -137,7 +137,7 @@ func TestStorage_CheckStorageConnection_WithContextTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStorage failed: %v", err)
 	}
-	defer func(storage *Storage) {
+	defer func(storage *LinkStorage) {
 		if closeError := storage.Close(); closeError != nil {
 			t.Fatalf("Failed to close storage")
 		}
@@ -173,7 +173,7 @@ func TestStorage_Close(t *testing.T) {
 }
 
 func TestStorage_Close_WithNilDB(t *testing.T) {
-	storage := &Storage{db: nil}
+	storage := &LinkStorage{db: nil}
 	err := storage.Close()
 	if err != nil {
 		t.Errorf("Close should not return error with nil db, got: %v", err)
@@ -241,7 +241,7 @@ func TestStorage_BatchSave_EmptySlice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStorage failed: %v", err)
 	}
-	defer func(storage *Storage) {
+	defer func(storage *LinkStorage) {
 		if closeError := storage.Close(); closeError != nil {
 			t.Fatalf("Failed to close storage")
 		}
@@ -263,7 +263,7 @@ func TestStorage_BatchSave_SingleLink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStorage failed: %v", err)
 	}
-	defer func(storage *Storage) {
+	defer func(storage *LinkStorage) {
 		if closeError := storage.Close(); closeError != nil {
 			t.Fatalf("Failed to close storage")
 		}
@@ -283,7 +283,7 @@ func TestStorage_BatchSave_SingleLink(t *testing.T) {
 		t.Error("Link was not saved in batch")
 	}
 
-	retrievedURL := storage.GetByShortKey(ctx, "batch-test-key-1")
+	retrievedURL, _ := storage.GetByShortKey(ctx, "batch-test-key-1")
 	if retrievedURL != testLink.FullURL {
 		t.Errorf("Expected URL '%s', got '%s'", testLink.FullURL, retrievedURL)
 	}
@@ -299,7 +299,7 @@ func TestStorage_BatchSave_MultipleLinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStorage failed: %v", err)
 	}
-	defer func(storage *Storage) {
+	defer func(storage *LinkStorage) {
 		if closeError := storage.Close(); closeError != nil {
 			t.Fatalf("Failed to close storage")
 		}
@@ -330,7 +330,7 @@ func TestStorage_BatchSave_MultipleLinks(t *testing.T) {
 			t.Errorf("Link with key '%s' was not saved", expectedLink.ShortKey)
 		}
 
-		retrievedURL := storage.GetByShortKey(ctx, expectedLink.ShortKey)
+		retrievedURL, _ := storage.GetByShortKey(ctx, expectedLink.ShortKey)
 		if retrievedURL != expectedLink.FullURL {
 			t.Errorf("Expected URL '%s' for key '%s', got '%s'", expectedLink.FullURL, expectedLink.ShortKey, retrievedURL)
 		}
@@ -338,7 +338,7 @@ func TestStorage_BatchSave_MultipleLinks(t *testing.T) {
 }
 
 func TestStorage_BatchSave_WithNilDB(t *testing.T) {
-	storage := &Storage{}
+	storage := &LinkStorage{}
 
 	ctx := context.Background()
 	testLinks := []*model.Link{
@@ -367,7 +367,7 @@ func TestStorage_Save_WithURLConflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStorage failed: %v", err)
 	}
-	defer func(storage *Storage) {
+	defer func(storage *LinkStorage) {
 		if closeError := storage.Close(); closeError != nil {
 			t.Fatalf("Failed to close storage")
 		}
@@ -434,7 +434,7 @@ func TestStorage_BatchSave_WithURLConflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStorage failed: %v", err)
 	}
-	defer func(storage *Storage) {
+	defer func(storage *LinkStorage) {
 		if closeError := storage.Close(); closeError != nil {
 			t.Fatalf("Failed to close storage")
 		}
@@ -497,7 +497,7 @@ func TestStorage_GetByUserID_EmptyResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStorage failed: %v", err)
 	}
-	defer func(storage *Storage) {
+	defer func(storage *LinkStorage) {
 		if closeError := storage.Close(); closeError != nil {
 			t.Fatalf("Failed to close storage")
 		}
@@ -523,7 +523,7 @@ func TestStorage_GetByUserID_SingleUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStorage failed: %v", err)
 	}
-	defer func(storage *Storage) {
+	defer func(storage *LinkStorage) {
 		if closeError := storage.Close(); closeError != nil {
 			t.Fatalf("Failed to close storage")
 		}
@@ -593,7 +593,7 @@ func TestStorage_GetByUserID_MultipleUsers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStorage failed: %v", err)
 	}
-	defer func(storage *Storage) {
+	defer func(storage *LinkStorage) {
 		if closeError := storage.Close(); closeError != nil {
 			t.Fatalf("Failed to close storage")
 		}
@@ -668,7 +668,7 @@ func TestStorage_GetByUserID_MultipleUsers(t *testing.T) {
 }
 
 func TestStorage_GetByUserID_WithNilDB(t *testing.T) {
-	storage := &Storage{db: nil}
+	storage := &LinkStorage{db: nil}
 	ctx := context.Background()
 
 	links, err := storage.GetByUserID(ctx, "test-user-id")

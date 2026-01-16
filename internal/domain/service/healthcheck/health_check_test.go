@@ -79,7 +79,7 @@ func TestService_CheckStorageConnection_WithError(t *testing.T) {
 	if err == nil {
 		t.Fatal("CheckStorageConnection should return error")
 	}
-	if err != expectedError {
+	if !errors.Is(err, expectedError) {
 		t.Errorf("Expected error '%v', got '%v'", expectedError, err)
 	}
 	if result {

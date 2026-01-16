@@ -74,3 +74,16 @@ func (mock *MockLinkReadUsecase) GetBaseURL() string {
 }
 
 var _ usecase.LinkReadUsecase = (*MockLinkReadUsecase)(nil)
+
+type MockLinkDeleteUsecase struct {
+	DeleteUserURLsFunc func(ctx context.Context, shortKeys []string) error
+}
+
+func (mock *MockLinkDeleteUsecase) DeleteUserURLs(ctx context.Context, shortKeys []string) error {
+	if mock.DeleteUserURLsFunc != nil {
+		return mock.DeleteUserURLsFunc(ctx, shortKeys)
+	}
+	return nil
+}
+
+var _ usecase.LinkDeleteUsecase = (*MockLinkDeleteUsecase)(nil)

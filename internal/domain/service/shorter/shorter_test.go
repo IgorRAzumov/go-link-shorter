@@ -9,19 +9,20 @@ import (
 )
 
 type mockLinkRepository struct {
-	getByShortKeyFunc    func(ctx context.Context, shortURL string) string
+	getByShortKeyFunc    func(ctx context.Context, shortURL string) (string, bool)
 	getShortKeyByURLFunc func(ctx context.Context, URL string) string
 	isExistShortKeyFunc  func(ctx context.Context, shortURL string) bool
 	saveFunc             func(ctx context.Context, link *model.Link) error
 	batchSaveFunc        func(ctx context.Context, links []*model.Link) error
 	getByUserIDFunc      func(ctx context.Context, userID string) ([]*model.Link, error)
+	markDeletedFunc      func(ctx context.Context, userID string, shortKeys []string) error
 }
 
-func (m *mockLinkRepository) GetByShortKey(ctx context.Context, shortURL string) string {
+func (m *mockLinkRepository) GetByShortKey(ctx context.Context, shortURL string) (string, bool) {
 	if m.getByShortKeyFunc != nil {
 		return m.getByShortKeyFunc(ctx, shortURL)
 	}
-	return ""
+	return "", false
 }
 
 func (m *mockLinkRepository) GetShortKeyByURL(ctx context.Context, URL string) string {
@@ -57,6 +58,13 @@ func (m *mockLinkRepository) GetByUserID(ctx context.Context, userID string) ([]
 		return m.getByUserIDFunc(ctx, userID)
 	}
 	return []*model.Link{}, nil
+}
+
+func (m *mockLinkRepository) MarkDeleted(ctx context.Context, userID string, shortKeys []string) error {
+	if m.markDeletedFunc != nil {
+		return m.markDeletedFunc(ctx, userID, shortKeys)
+	}
+	return nil
 }
 
 func TestGenerateShortKey_ReturnsNonEmpty(t *testing.T) {
@@ -369,7 +377,7 @@ func TestSaveBatchLinks_NonConflictError(t *testing.T) {
 
 	err := service.saveBatchLinks(ctx, linksToSave, urlToShortKey)
 
-	if err != expectedErr {
+	if !errors.Is(err, expectedErr) {
 		t.Errorf("Expected error '%v', got '%v'", expectedErr, err)
 	}
 }
@@ -433,7 +441,7 @@ func TestHandleBatchSaveError_NonConflictError(t *testing.T) {
 
 	err := service.handleBatchSaveError(expectedErr, linksToSave, urlToShortKey)
 
-	if err != expectedErr {
+	if !errors.Is(err, expectedErr) {
 		t.Errorf("Expected error '%v', got '%v'", expectedErr, err)
 	}
 }

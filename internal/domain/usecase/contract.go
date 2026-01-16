@@ -20,6 +20,10 @@ type LinkReadUsecase interface {
 	GetBaseURL() string
 }
 
+type LinkDeleteUsecase interface {
+	DeleteUserURLs(ctx context.Context, shortKeys []string) error
+}
+
 type HealthCheckUsecase interface {
 	CheckSystemConnections(ctx context.Context) (bool, error)
 }

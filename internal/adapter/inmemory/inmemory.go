@@ -31,16 +31,16 @@ func NewInMemoryFileStorage(filePath string) (*LinkStorage, error) {
 	return storage, nil
 }
 
-func (storage *LinkStorage) GetByShortKey(ctx context.Context, shortURL string) string {
+func (storage *LinkStorage) GetByShortKey(ctx context.Context, shortURL string) (fullURL string, isDeleted bool) {
 	storage.mu.RLock()
 	defer storage.mu.RUnlock()
 
 	log.Debug().Str("short_key", shortURL).Msg("storage: GetByShortKey")
 	value, _ := storage.linksByID.Load(shortURL)
 	if link, ok := value.(*adapter.Link); ok {
-		return link.FullURL
+		return link.FullURL, link.DeletedFlag
 	}
-	return ""
+	return "", false
 }
 
 func (storage *LinkStorage) IsExistShortKey(ctx context.Context, shortKey string) bool {
@@ -90,11 +90,12 @@ func (storage *LinkStorage) GetByUserID(ctx context.Context, userID string) ([]*
 	var links []*model.Link
 	storage.linksByID.Range(func(key, value interface{}) bool {
 		if link, ok := value.(*adapter.Link); ok {
-			if link.UserID == userID {
+			if link.UserID == userID && !link.DeletedFlag {
 				links = append(links, &model.Link{
-					ShortKey: link.ShortKey,
-					FullURL:  link.FullURL,
-					UserID:   link.UserID,
+					ShortKey:    link.ShortKey,
+					FullURL:     link.FullURL,
+					UserID:      link.UserID,
+					DeletedFlag: link.DeletedFlag,
 				})
 			}
 		}
@@ -102,6 +103,40 @@ func (storage *LinkStorage) GetByUserID(ctx context.Context, userID string) ([]*
 	})
 
 	return links, nil
+}
+
+func (storage *LinkStorage) MarkDeleted(ctx context.Context, userID string, shortKeys []string) error {
+	storage.mu.Lock()
+	defer storage.mu.Unlock()
+
+	shortKeySet := make(map[string]struct{}, len(shortKeys))
+	for _, k := range shortKeys {
+		if k == "" {
+			continue
+		}
+		shortKeySet[k] = struct{}{}
+	}
+
+	storage.linksByID.Range(func(key, value interface{}) bool {
+		link, ok := value.(*adapter.Link)
+		if !ok {
+			return true
+		}
+		if link.UserID != userID {
+			return true
+		}
+		if _, ok := shortKeySet[link.ShortKey]; !ok {
+			return true
+		}
+		link.DeletedFlag = true
+		return true
+	})
+
+	if err := storage.saveToFile(); err != nil {
+		log.Error().Err(err).Msg("Failed to save data to file")
+		return err
+	}
+	return nil
 }
 
 func (storage *LinkStorage) BatchSave(ctx context.Context, links []*model.Link) error {
