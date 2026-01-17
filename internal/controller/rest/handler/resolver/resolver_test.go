@@ -29,7 +29,7 @@ func TestResolveHandler_EmptyPath(t *testing.T) {
 func TestResolveHandler_SingleCharPath_NotFound(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkReadUsecase{
 		GetFullURLByShortKeyFunc: func(ctx context.Context, shortKey string) (string, error) {
-			return "", errors.New("not found")
+			return "", model.ErrEmptyUser
 		},
 	}
 	handler := Handler(mockUsecase)

@@ -38,7 +38,7 @@ func (m *mockRepo) MarkDeleted(ctx context.Context, userID string, shortKeys []s
 }
 
 func TestEnqueue_EmptyUserID_ReturnsError(t *testing.T) {
-	s := New(&mockRepo{}, DefaultMaxBatch)
+	s := NewDeleterService(&mockRepo{}, DefaultMaxBatch)
 	if err := s.Enqueue("", []string{"a"}); err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -54,11 +54,12 @@ func TestService_FlushesOnBatchSize(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	s := New(repo, 2)
-	s.Start(ctx)
+	s := NewDeleterService(repo, 2)
+	s.Start()
+	defer func() {
+		s.Stop()
+		s.Wait()
+	}()
 
 	if err := s.Enqueue("u1", []string{"a", "b"}); err != nil {
 		t.Fatalf("enqueue error: %v", err)
@@ -69,8 +70,15 @@ func TestService_FlushesOnBatchSize(t *testing.T) {
 		if got.userID != "u1" {
 			t.Fatalf("expected userID %q, got %q", "u1", got.userID)
 		}
-		if len(got.keys) != 2 || got.keys[0] != "a" || got.keys[1] != "b" {
-			t.Fatalf("expected keys [a b], got %#v", got.keys)
+		if len(got.keys) != 2 {
+			t.Fatalf("expected 2 keys, got %#v", got.keys)
+		}
+		set := map[string]struct{}{got.keys[0]: {}, got.keys[1]: {}}
+		if _, ok := set["a"]; !ok {
+			t.Fatalf("expected key %q, got %#v", "a", got.keys)
+		}
+		if _, ok := set["b"]; !ok {
+			t.Fatalf("expected key %q, got %#v", "b", got.keys)
 		}
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("timed out waiting for MarkDeleted call")
@@ -87,11 +95,12 @@ func TestService_GroupsByUserInSingleFlush(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	s := New(repo, 2)
-	s.Start(ctx)
+	s := NewDeleterService(repo, 2)
+	s.Start()
+	defer func() {
+		s.Stop()
+		s.Wait()
+	}()
 
 	if err := s.Enqueue("u1", []string{"a"}); err != nil {
 		t.Fatalf("enqueue error: %v", err)
