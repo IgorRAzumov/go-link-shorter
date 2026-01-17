@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"encoding/base64"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -29,12 +28,7 @@ func TestAuthMiddleware_CreatesCookieIfNotExists(t *testing.T) {
 	middleware(handler).ServeHTTP(rr, req)
 
 	resp := rr.Result()
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			t.Error(err)
-		}
-	}(resp.Body)
+	defer resp.Body.Close()
 	cookies := resp.Cookies()
 	if len(cookies) == 0 {
 		t.Error("Expected cookie to be set")
@@ -102,12 +96,7 @@ func TestAuthMiddleware_RejectsInvalidCookie(t *testing.T) {
 
 	// Should create a new cookie since the old one is invalid
 	resp := rr.Result()
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			t.Error(err)
-		}
-	}(resp.Body)
+	defer resp.Body.Close()
 	cookies := resp.Cookies()
 	if len(cookies) == 0 {
 		t.Error("Expected new cookie to be set")
