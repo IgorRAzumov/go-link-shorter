@@ -1,11 +1,17 @@
 package app
 
 import (
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/IgorRAzumov/go-link-shorter/internal/adapter/database"
 	"github.com/IgorRAzumov/go-link-shorter/internal/adapter/inmemory"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/repository"
 	authservice "github.com/IgorRAzumov/go-link-shorter/internal/domain/service/auth"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/deleter"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/healthcheck"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/resolver"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/shorter"
@@ -16,22 +22,31 @@ import (
 
 func Run(serverAddress, baseURL, fileStoragePath, databaseDSN, secretKey string) {
 	storage := initStorage(databaseDSN, fileStoragePath)
-	shorterService := shorter.NewShorterService(storage)
 	resolverService := resolver.NewResolverService(storage)
-	linkCreateUsecase := link.NewLinkCreateUsecase(resolverService, shorterService, baseURL)
-	linkReadUsecase := link.NewLinkReadUsecase(resolverService, baseURL)
+	authSvc := authservice.NewAuthService(secretKey)
+	deleteService := deleter.NewDeleterService(storage, deleter.DefaultMaxBatch)
+	deleteService.Start()
 
-	var dataBaseStorage *database.Storage
-	if dbStorage, ok := storage.(*database.Storage); ok {
+	var dataBaseStorage *database.LinkStorage
+	if dbStorage, ok := storage.(*database.LinkStorage); ok {
 		dataBaseStorage = dbStorage
 	} else {
-		dataBaseStorage = &database.Storage{}
+		dataBaseStorage = &database.LinkStorage{}
 	}
 	healthCheckService := healthcheck.NewHealthCheckService(dataBaseStorage)
-	healthCheckUsecase := healthcheckusecase.NewHealthCheckUsecase(healthCheckService)
 
-	authSvc := authservice.NewAuthService(secretKey)
-	rest.Start(linkCreateUsecase, linkReadUsecase, healthCheckUsecase, authSvc, serverAddress)
+	healthCheckUsecase := healthcheckusecase.NewHealthCheckUsecase(healthCheckService)
+	linkCreateUsecase := link.NewLinkCreateUsecase(resolverService, shorter.NewShorterService(storage), baseURL)
+	linkReadUsecase := link.NewLinkReadUsecase(resolverService, baseURL)
+	linkDeleteUsecase := link.NewLinkDeleteUsecase(deleteService)
+
+	serverCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	rest.Start(serverCtx, linkCreateUsecase, linkReadUsecase, linkDeleteUsecase, healthCheckUsecase, authSvc, serverAddress)
+
+	deleteService.Stop()
+	deleteService.Wait()
 }
 
 func initStorage(databaseDSN, fileStoragePath string) repository.LinkRepository {

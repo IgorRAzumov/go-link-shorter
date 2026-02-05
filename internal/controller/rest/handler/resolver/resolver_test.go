@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	commontesting "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common/testing"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -28,7 +29,7 @@ func TestResolveHandler_EmptyPath(t *testing.T) {
 func TestResolveHandler_SingleCharPath_NotFound(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkReadUsecase{
 		GetFullURLByShortKeyFunc: func(ctx context.Context, shortKey string) (string, error) {
-			return "", errors.New("not found")
+			return "", model.ErrEmptyUser
 		},
 	}
 	handler := Handler(mockUsecase)
@@ -107,6 +108,26 @@ func TestResolveHandler_UsecaseReturnsEmptyString(t *testing.T) {
 
 	if writer.Code != http.StatusBadRequest {
 		t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, writer.Code)
+	}
+}
+
+func TestResolveHandler_Returns410WhenDeleted(t *testing.T) {
+	shortKey := "abc123"
+	mockUsecase := &commontesting.MockLinkReadUsecase{
+		GetFullURLByShortKeyFunc: func(ctx context.Context, key string) (string, error) {
+			return "", model.ErrURLDeleted
+		},
+	}
+	handler := Handler(mockUsecase)
+
+	request := httptest.NewRequest(http.MethodGet, "/"+shortKey, nil)
+	request = setURLParam(request, "shortKey", shortKey)
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusGone {
+		t.Errorf("Expected status code %d, got %d", http.StatusGone, writer.Code)
 	}
 }
 

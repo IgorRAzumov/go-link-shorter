@@ -7,7 +7,7 @@ import (
 )
 
 type LinkRepository interface {
-	GetByShortKey(ctx context.Context, shortURL string) string
+	GetByShortKey(ctx context.Context, shortURL string) (fullURL string, isDeleted bool)
 
 	GetShortKeyByURL(ctx context.Context, URL string) string
 
@@ -18,6 +18,8 @@ type LinkRepository interface {
 	BatchSave(ctx context.Context, links []*model.Link) error
 
 	GetByUserID(ctx context.Context, userID string) ([]*model.Link, error)
+
+	MarkDeleted(ctx context.Context, userID string, shortKeys []string) error
 }
 
 type HealthCheckRepository interface {

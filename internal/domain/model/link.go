@@ -1,9 +1,10 @@
 package model
 
 type Link struct {
-	ShortKey string
-	FullURL  string
-	UserID   string
+	ShortKey    string
+	FullURL     string
+	UserID      string
+	DeletedFlag bool
 }
 
 type BatchShortenRequest struct {

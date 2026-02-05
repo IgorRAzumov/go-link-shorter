@@ -130,9 +130,6 @@ func (usecase *CreatorUsecase) ProcessBatchShortenRequests(ctx context.Context, 
 
 func (usecase *ReaderUsecase) GetUserURLs(ctx context.Context) ([]*model.Link, error) {
 	userID := authctx.UserID(ctx)
-	if userID == "" {
-		return nil, fmt.Errorf("user ID not found in context")
-	}
 	return usecase.resolver.GetByUserID(ctx, userID)
 }
 

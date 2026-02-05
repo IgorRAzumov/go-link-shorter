@@ -23,6 +23,10 @@ type HealthCheckService interface {
 	CheckStorageConnection(ctx context.Context) (bool, error)
 }
 
+type DeleteService interface {
+	Enqueue(userID string, shortKeys []string) error
+}
+
 type AuthService interface {
 	GenerateUserID() string
 	SignUserID(userID string) string

@@ -20,7 +20,11 @@ func (service *Service) GetFullLink(ctx context.Context, shortKey string) (strin
 	if shortKey == "" || !service.linkRepo.IsExistShortKey(ctx, shortKey) {
 		return "", fmt.Errorf("unknown shortKey: %s", shortKey)
 	}
-	return service.linkRepo.GetByShortKey(ctx, shortKey), nil
+	fullURL, isDeleted := service.linkRepo.GetByShortKey(ctx, shortKey)
+	if isDeleted {
+		return "", model.ErrURLDeleted
+	}
+	return fullURL, nil
 }
 
 func (service *Service) GetShortKeyByURL(ctx context.Context, URL string) string {

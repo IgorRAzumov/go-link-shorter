@@ -98,7 +98,7 @@ func TestNewFileStorage_WithExistingFile(t *testing.T) {
 		t.Error("Link 'key2' was not loaded from file")
 	}
 
-	retrievedURL := storage.GetByShortKey(ctx, "key1")
+	retrievedURL, _ := storage.GetByShortKey(ctx, "key1")
 	if retrievedURL != "https://example1.com" {
 		t.Errorf("Expected URL 'https://example1.com', got '%s'", retrievedURL)
 	}
@@ -128,7 +128,7 @@ func TestLinkStorage_Save(t *testing.T) {
 		t.Error("Link was not saved - IsExistShortKey returned false")
 	}
 
-	retrievedURL := storage.GetByShortKey(ctx, testLink.ShortKey)
+	retrievedURL, _ := storage.GetByShortKey(ctx, testLink.ShortKey)
 	if retrievedURL != testLink.FullURL {
 		t.Errorf("Expected URL '%s', got '%s'", testLink.FullURL, retrievedURL)
 	}
@@ -270,7 +270,7 @@ func TestLinkStorage_GetByShortKey(t *testing.T) {
 				storage.Save(ctx, domainLink)
 			}
 
-			result := storage.GetByShortKey(ctx, testCase.shortKey)
+			result, _ := storage.GetByShortKey(ctx, testCase.shortKey)
 			if result != testCase.expectedURL {
 				t.Errorf("Expected URL '%s', got '%s'", testCase.expectedURL, result)
 			}
@@ -486,7 +486,7 @@ func TestLinkStorage_MultipleSaves(t *testing.T) {
 	}
 	storage.Save(ctx, secondDomainLink)
 
-	retrievedURL := storage.GetByShortKey(ctx, "same-key")
+	retrievedURL, _ := storage.GetByShortKey(ctx, "same-key")
 	if retrievedURL != secondLink.FullURL {
 		t.Errorf("Expected URL '%s' after overwrite, got '%s'", secondLink.FullURL, retrievedURL)
 	}
@@ -514,7 +514,7 @@ func TestLinkStorage_ConcurrentAccess(t *testing.T) {
 				FullURL:  link.FullURL,
 			}
 			storage.Save(ctx, domainLink)
-			storage.GetByShortKey(ctx, "key-concurrent")
+			_, _ = storage.GetByShortKey(ctx, "key-concurrent")
 			storage.IsExistShortKey(ctx, "key-concurrent")
 			done <- true
 		}(i)
@@ -571,7 +571,7 @@ func TestLinkStorage_Persistence(t *testing.T) {
 			t.Errorf("Link with key '%s' was not restored after restart", expectedLink.ShortKey)
 		}
 
-		retrievedURL := secondStorage.GetByShortKey(ctx, expectedLink.ShortKey)
+		retrievedURL, _ := secondStorage.GetByShortKey(ctx, expectedLink.ShortKey)
 		if retrievedURL != expectedLink.FullURL {
 			t.Errorf("Expected URL '%s' for key '%s', got '%s'", expectedLink.FullURL, expectedLink.ShortKey, retrievedURL)
 		}
@@ -679,7 +679,7 @@ func TestLinkStorage_BatchSave_SingleLink(t *testing.T) {
 		t.Error("Link was not saved in batch")
 	}
 
-	retrievedURL := storage.GetByShortKey(ctx, "batch-key-1")
+	retrievedURL, _ := storage.GetByShortKey(ctx, "batch-key-1")
 	if retrievedURL != testLink.FullURL {
 		t.Errorf("Expected URL '%s', got '%s'", testLink.FullURL, retrievedURL)
 	}
@@ -721,7 +721,7 @@ func TestLinkStorage_BatchSave_MultipleLinks(t *testing.T) {
 			t.Errorf("Link with key '%s' was not saved", expectedLink.ShortKey)
 		}
 
-		retrievedURL := storage.GetByShortKey(ctx, expectedLink.ShortKey)
+		retrievedURL, _ := storage.GetByShortKey(ctx, expectedLink.ShortKey)
 		if retrievedURL != expectedLink.FullURL {
 			t.Errorf("Expected URL '%s' for key '%s', got '%s'", expectedLink.FullURL, expectedLink.ShortKey, retrievedURL)
 		}
@@ -760,7 +760,7 @@ func TestLinkStorage_BatchSave_PersistsToFile(t *testing.T) {
 			t.Errorf("Link with key '%s' was not restored after restart", expectedLink.ShortKey)
 		}
 
-		retrievedURL := secondStorage.GetByShortKey(ctx, expectedLink.ShortKey)
+		retrievedURL, _ := secondStorage.GetByShortKey(ctx, expectedLink.ShortKey)
 		if retrievedURL != expectedLink.FullURL {
 			t.Errorf("Expected URL '%s' for key '%s', got '%s'", expectedLink.FullURL, expectedLink.ShortKey, retrievedURL)
 		}
