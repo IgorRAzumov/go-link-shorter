@@ -5,6 +5,7 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/adapter/inmemory"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/repository"
+	authservice "github.com/IgorRAzumov/go-link-shorter/internal/domain/service/auth"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/healthcheck"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/resolver"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/shorter"
@@ -13,11 +14,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Run(serverAddress, baseURL, fileStoragePath, databaseDSN string) {
+func Run(serverAddress, baseURL, fileStoragePath, databaseDSN, secretKey string) {
 	storage := initStorage(databaseDSN, fileStoragePath)
 	shorterService := shorter.NewShorterService(storage)
 	resolverService := resolver.NewResolverService(storage)
-	linkUsecase := link.NewLinkUsecase(resolverService, shorterService, baseURL)
+	linkCreateUsecase := link.NewLinkCreateUsecase(resolverService, shorterService, baseURL)
+	linkReadUsecase := link.NewLinkReadUsecase(resolverService, baseURL)
 
 	var dataBaseStorage *database.Storage
 	if dbStorage, ok := storage.(*database.Storage); ok {
@@ -28,7 +30,8 @@ func Run(serverAddress, baseURL, fileStoragePath, databaseDSN string) {
 	healthCheckService := healthcheck.NewHealthCheckService(dataBaseStorage)
 	healthCheckUsecase := healthcheckusecase.NewHealthCheckUsecase(healthCheckService)
 
-	rest.Start(linkUsecase, healthCheckUsecase, serverAddress)
+	authSvc := authservice.NewAuthService(secretKey)
+	rest.Start(linkCreateUsecase, linkReadUsecase, healthCheckUsecase, authSvc, serverAddress)
 }
 
 func initStorage(databaseDSN, fileStoragePath string) repository.LinkRepository {

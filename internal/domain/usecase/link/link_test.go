@@ -10,6 +10,7 @@ import (
 
 type mockResolverService struct {
 	getShortKeyByURLFunc func(ctx context.Context, URL string) string
+	getByUserIDFunc      func(ctx context.Context, userID string) ([]*model.Link, error)
 }
 
 func (m *mockResolverService) GetFullLink(ctx context.Context, shortKey string) (string, error) {
@@ -23,13 +24,20 @@ func (m *mockResolverService) GetShortKeyByURL(ctx context.Context, URL string) 
 	return ""
 }
 
+func (m *mockResolverService) GetByUserID(ctx context.Context, userID string) ([]*model.Link, error) {
+	if m.getByUserIDFunc != nil {
+		return m.getByUserIDFunc(ctx, userID)
+	}
+	return []*model.Link{}, nil
+}
+
 type mockShorterService struct {
 	generateShortKeyFunc            func(URL string) string
 	createShortKeysFunc             func(ctx context.Context, links []*model.Link) error
-	processBatchShortenRequestsFunc func(ctx context.Context, requests []model.BatchShortenRequest, resolver service.ResolverService) ([]model.BatchShortenResult, error)
+	processBatchShortenRequestsFunc func(ctx context.Context, requests []model.BatchShortenRequest, resolver service.ResolverService, userID string) ([]model.BatchShortenResult, error)
 }
 
-func (m *mockShorterService) CreateShortKey(ctx context.Context, URL string) (string, error) {
+func (m *mockShorterService) CreateShortKey(ctx context.Context, URL string, userID string) (string, error) {
 	return "", nil
 }
 
@@ -47,9 +55,9 @@ func (m *mockShorterService) CreateShortKeys(ctx context.Context, links []*model
 	return nil
 }
 
-func (m *mockShorterService) ProcessBatchShortenRequests(ctx context.Context, requests []model.BatchShortenRequest, resolver service.ResolverService) ([]model.BatchShortenResult, error) {
+func (m *mockShorterService) ProcessBatchShortenRequests(ctx context.Context, requests []model.BatchShortenRequest, resolver service.ResolverService, userID string) ([]model.BatchShortenResult, error) {
 	if m.processBatchShortenRequestsFunc != nil {
-		return m.processBatchShortenRequestsFunc(ctx, requests, resolver)
+		return m.processBatchShortenRequestsFunc(ctx, requests, resolver, userID)
 	}
 	return []model.BatchShortenResult{}, nil
 }
@@ -57,7 +65,7 @@ func (m *mockShorterService) ProcessBatchShortenRequests(ctx context.Context, re
 func TestCreateShortKeysBatch_EmptyURLs(t *testing.T) {
 	resolver := &mockResolverService{}
 	shorter := &mockShorterService{}
-	usecase := NewLinkUsecase(resolver, shorter, "http://localhost:8080")
+	usecase := NewLinkCreateUsecase(resolver, shorter, "http://localhost:8080")
 
 	ctx := context.Background()
 	result, err := usecase.CreateShortKeysBatch(ctx, []string{})
@@ -81,7 +89,7 @@ func TestCreateShortKeysBatch_WithExistingURLs(t *testing.T) {
 		},
 	}
 	shorter := &mockShorterService{}
-	usecase := NewLinkUsecase(resolver, shorter, "http://localhost:8080")
+	usecase := NewLinkCreateUsecase(resolver, shorter, "http://localhost:8080")
 
 	ctx := context.Background()
 	result, err := usecase.CreateShortKeysBatch(ctx, []string{"https://example.com"})
@@ -114,7 +122,7 @@ func TestCreateShortKeysBatch_WithNewURLs(t *testing.T) {
 			return nil
 		},
 	}
-	usecase := NewLinkUsecase(resolver, shorter, "http://localhost:8080")
+	usecase := NewLinkCreateUsecase(resolver, shorter, "http://localhost:8080")
 
 	ctx := context.Background()
 	result, err := usecase.CreateShortKeysBatch(ctx, []string{"https://new-example.com"})
@@ -160,7 +168,7 @@ func TestCreateShortKeysBatch_WithMixedURLs(t *testing.T) {
 			return nil
 		},
 	}
-	usecase := NewLinkUsecase(resolver, shorter, "http://localhost:8080")
+	usecase := NewLinkCreateUsecase(resolver, shorter, "http://localhost:8080")
 
 	ctx := context.Background()
 	result, err := usecase.CreateShortKeysBatch(ctx, []string{"https://existing.com", "https://new.com"})
@@ -193,7 +201,7 @@ func TestCreateShortKeysBatch_GenerateShortKeyReturnsEmpty(t *testing.T) {
 			return ""
 		},
 	}
-	usecase := NewLinkUsecase(resolver, shorter, "http://localhost:8080")
+	usecase := NewLinkCreateUsecase(resolver, shorter, "http://localhost:8080")
 
 	ctx := context.Background()
 	result, err := usecase.CreateShortKeysBatch(ctx, []string{"https://example.com"})
@@ -223,7 +231,7 @@ func TestCreateShortKeysBatch_NormalizesURLs(t *testing.T) {
 			return nil
 		},
 	}
-	usecase := NewLinkUsecase(resolver, shorter, "http://localhost:8080")
+	usecase := NewLinkCreateUsecase(resolver, shorter, "http://localhost:8080")
 
 	ctx := context.Background()
 	_, err := usecase.CreateShortKeysBatch(ctx, []string{"https://example.com/"})

@@ -766,3 +766,187 @@ func TestLinkStorage_BatchSave_PersistsToFile(t *testing.T) {
 		}
 	}
 }
+
+func TestLinkStorage_GetByUserID_EmptyResult(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "get-by-user-id-empty.json")
+	storage, err := NewInMemoryFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
+	}
+	ctx := context.Background()
+
+	links, err := storage.GetByUserID(ctx, "non-existent-user-id")
+	if err != nil {
+		t.Fatalf("GetByUserID should not return error, got: %v", err)
+	}
+	if len(links) != 0 {
+		t.Errorf("Expected 0 links for non-existent user, got %d", len(links))
+	}
+}
+
+func TestLinkStorage_GetByUserID_SingleUser(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "get-by-user-id-single.json")
+	storage, err := NewInMemoryFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
+	}
+	ctx := context.Background()
+
+	userID := "user-123"
+	testLinks := []*model.Link{
+		{
+			ShortKey: "key1",
+			FullURL:  "https://example1.com",
+			UserID:   userID,
+		},
+		{
+			ShortKey: "key2",
+			FullURL:  "https://example2.com",
+			UserID:   userID,
+		},
+		{
+			ShortKey: "key3",
+			FullURL:  "https://example3.com",
+			UserID:   userID,
+		},
+	}
+
+	for _, link := range testLinks {
+		if err := storage.Save(ctx, link); err != nil {
+			t.Fatalf("Failed to save link: %v", err)
+		}
+	}
+
+	links, err := storage.GetByUserID(ctx, userID)
+	if err != nil {
+		t.Fatalf("GetByUserID should not return error, got: %v", err)
+	}
+	if len(links) != len(testLinks) {
+		t.Errorf("Expected %d links, got %d", len(testLinks), len(links))
+	}
+
+	linkMap := make(map[string]*model.Link)
+	for _, link := range links {
+		linkMap[link.ShortKey] = link
+	}
+
+	for _, expectedLink := range testLinks {
+		foundLink, exists := linkMap[expectedLink.ShortKey]
+		if !exists {
+			t.Errorf("Link with key '%s' not found", expectedLink.ShortKey)
+			continue
+		}
+		if foundLink.FullURL != expectedLink.FullURL {
+			t.Errorf("Expected URL '%s' for key '%s', got '%s'", expectedLink.FullURL, expectedLink.ShortKey, foundLink.FullURL)
+		}
+		if foundLink.UserID != userID {
+			t.Errorf("Expected UserID '%s' for key '%s', got '%s'", userID, expectedLink.ShortKey, foundLink.UserID)
+		}
+	}
+}
+
+func TestLinkStorage_GetByUserID_MultipleUsers(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "get-by-user-id-multiple.json")
+	storage, err := NewInMemoryFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
+	}
+	ctx := context.Background()
+
+	user1ID := "user-1"
+	user2ID := "user-2"
+
+	user1Links := []*model.Link{
+		{
+			ShortKey: "user1-key1",
+			FullURL:  "https://user1-example1.com",
+			UserID:   user1ID,
+		},
+		{
+			ShortKey: "user1-key2",
+			FullURL:  "https://user1-example2.com",
+			UserID:   user1ID,
+		},
+	}
+
+	user2Links := []*model.Link{
+		{
+			ShortKey: "user2-key1",
+			FullURL:  "https://user2-example1.com",
+			UserID:   user2ID,
+		},
+	}
+
+	for _, link := range user1Links {
+		if err := storage.Save(ctx, link); err != nil {
+			t.Fatalf("Failed to save user1 link: %v", err)
+		}
+	}
+
+	for _, link := range user2Links {
+		if err := storage.Save(ctx, link); err != nil {
+			t.Fatalf("Failed to save user2 link: %v", err)
+		}
+	}
+
+	user1Result, err := storage.GetByUserID(ctx, user1ID)
+	if err != nil {
+		t.Fatalf("GetByUserID should not return error for user1, got: %v", err)
+	}
+	if len(user1Result) != len(user1Links) {
+		t.Errorf("Expected %d links for user1, got %d", len(user1Links), len(user1Result))
+	}
+
+	user2Result, err := storage.GetByUserID(ctx, user2ID)
+	if err != nil {
+		t.Fatalf("GetByUserID should not return error for user2, got: %v", err)
+	}
+	if len(user2Result) != len(user2Links) {
+		t.Errorf("Expected %d links for user2, got %d", len(user2Links), len(user2Result))
+	}
+
+	// Verify user1 links don't contain user2 links
+	for _, link := range user1Result {
+		if link.UserID != user1ID {
+			t.Errorf("User1 result contains link with wrong UserID: %s", link.UserID)
+		}
+	}
+
+	// Verify user2 links don't contain user1 links
+	for _, link := range user2Result {
+		if link.UserID != user2ID {
+			t.Errorf("User2 result contains link with wrong UserID: %s", link.UserID)
+		}
+	}
+}
+
+func TestLinkStorage_GetByUserID_WithEmptyUserID(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "get-by-user-id-empty-id.json")
+	storage, err := NewInMemoryFileStorage(filePath)
+	if err != nil {
+		t.Fatalf("NewInMemoryFileStorage failed: %v", err)
+	}
+	ctx := context.Background()
+
+	// Save link with empty UserID
+	link := &model.Link{
+		ShortKey: "empty-user-key",
+		FullURL:  "https://empty-user.com",
+		UserID:   "",
+	}
+	if err := storage.Save(ctx, link); err != nil {
+		t.Fatalf("Failed to save link: %v", err)
+	}
+
+	links, err := storage.GetByUserID(ctx, "")
+	if err != nil {
+		t.Fatalf("GetByUserID should not return error, got: %v", err)
+	}
+	if len(links) != 1 {
+		t.Errorf("Expected 1 link with empty UserID, got %d", len(links))
+	}
+}

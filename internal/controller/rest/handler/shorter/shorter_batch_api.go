@@ -11,7 +11,7 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
 
-func BatchAPIHandler(usecase usecase.LinkUsecase) http.HandlerFunc {
+func BatchAPIHandler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if !IsApplicationJSON(request.Header.Get(common.ContentType)) {
 			common.MethodNotAllowedError(writer)

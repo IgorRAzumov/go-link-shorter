@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func Handler(usecase usecase.LinkUsecase) http.HandlerFunc {
+func Handler(usecase usecase.LinkReadUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		shortKey := chi.URLParam(request, "shortKey")
 		context := request.Context()

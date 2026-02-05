@@ -16,6 +16,8 @@ type LinkRepository interface {
 	Save(ctx context.Context, link *model.Link) error
 
 	BatchSave(ctx context.Context, links []*model.Link) error
+
+	GetByUserID(ctx context.Context, userID string) ([]*model.Link, error)
 }
 
 type HealthCheckRepository interface {

@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Handler(usecase usecase.LinkUsecase) http.HandlerFunc {
+func Handler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if !IsTextPlain(request.Header.Get(common.ContentType)) {
 			common.MethodNotAllowedError(writer)

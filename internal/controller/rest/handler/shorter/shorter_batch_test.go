@@ -15,7 +15,7 @@ import (
 )
 
 func TestBatchAPIHandler_WrongMethod(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{}
+	mockUsecase := &commontesting.MockLinkCreateUsecase{}
 	handler := BatchAPIHandler(mockUsecase)
 
 	methods := []string{http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPatch}
@@ -48,7 +48,7 @@ func TestBatchAPIHandler_WrongContentType(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
-			mockUsecase := &commontesting.MockLinkUsecase{
+			mockUsecase := &commontesting.MockLinkCreateUsecase{
 				GetBaseURLFunc: func() string {
 					return "http://localhost:8080"
 				},
@@ -101,7 +101,7 @@ func TestBatchAPIHandler_InvalidJSON(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
-			mockUsecase := &commontesting.MockLinkUsecase{}
+			mockUsecase := &commontesting.MockLinkCreateUsecase{}
 			handler := BatchAPIHandler(mockUsecase)
 
 			request := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", strings.NewReader(testCase.body))
@@ -118,7 +118,7 @@ func TestBatchAPIHandler_InvalidJSON(t *testing.T) {
 }
 
 func TestBatchAPIHandler_EmptyBatch(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{}
+	mockUsecase := &commontesting.MockLinkCreateUsecase{}
 	handler := BatchAPIHandler(mockUsecase)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", strings.NewReader(`[]`))
@@ -133,7 +133,7 @@ func TestBatchAPIHandler_EmptyBatch(t *testing.T) {
 }
 
 func TestBatchAPIHandler_CreateShortKeysBatchReturnsError(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
 			return nil, errors.New("ProcessBatchShortenRequests error")
 		},
@@ -153,7 +153,7 @@ func TestBatchAPIHandler_CreateShortKeysBatchReturnsError(t *testing.T) {
 
 func TestBatchAPIHandler_Success_WithBaseURL(t *testing.T) {
 	expectedShortKey := "abc123"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
 			responses := make([]model.BatchShortenResponse, 0, len(requests))
 			for _, req := range requests {
@@ -203,7 +203,7 @@ func TestBatchAPIHandler_Success_WithBaseURL(t *testing.T) {
 }
 
 func TestBatchAPIHandler_Success_MultipleURLs(t *testing.T) {
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
 			keys := []string{"key1", "key2", "key3"}
 			responses := make([]model.BatchShortenResponse, 0, len(requests))
@@ -261,7 +261,7 @@ func TestBatchAPIHandler_Success_MultipleURLs(t *testing.T) {
 
 func TestBatchAPIHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 	expectedShortKey := "xyz789"
-	mockUsecase := &commontesting.MockLinkUsecase{
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
 		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
 			responses := make([]model.BatchShortenResponse, 0, len(requests))
 			for _, req := range requests {
