@@ -14,13 +14,22 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 	commontesting "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common/testing"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter/model"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/authctx"
 	domainmodel "github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/rs/zerolog/log"
 )
 
+type recordingAuditor struct {
+	events []domainmodel.AuditEvent
+}
+
+func (r *recordingAuditor) AuditNewEvent(_ context.Context, e domainmodel.AuditEvent) {
+	r.events = append(r.events, e)
+}
+
 func TestShortenHandler_WrongMethod(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkCreateUsecase{}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	methods := []string{http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPatch}
 
@@ -62,7 +71,7 @@ func TestShortenHandler_WrongContentType(t *testing.T) {
 					return "short-key", nil
 				}
 			}
-			handler := Handler(mockUsecase)
+			handler := Handler(mockUsecase, nil)
 
 			request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
 			if testCase.contentType != "" {
@@ -85,9 +94,85 @@ func TestShortenHandler_WrongContentType(t *testing.T) {
 	}
 }
 
+func TestShortenHandler_AuditOnSuccess(t *testing.T) {
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
+		GetBaseURLFunc: func() string { return "http://localhost:8080" },
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
+			return "short-key", nil
+		},
+	}
+	rec := &recordingAuditor{}
+	handler := Handler(mockUsecase, rec)
+
+	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com/path/"))
+	request.Header.Set(common.ContentType, common.TextPlain)
+	request = request.WithContext(authctx.WithUserID(request.Context(), "u1"))
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusCreated {
+		t.Fatalf("Expected status code %d, got %d", http.StatusCreated, writer.Code)
+	}
+	if len(rec.events) != 1 {
+		t.Fatalf("Expected 1 audit event, got %d", len(rec.events))
+	}
+	ev := rec.events[0]
+	if ev.Action != "shorten" {
+		t.Errorf("Expected action 'shorten', got '%s'", ev.Action)
+	}
+	if ev.UserID != "u1" {
+		t.Errorf("Expected user_id 'u1', got '%s'", ev.UserID)
+	}
+	if ev.URL != "https://example.com/path" {
+		t.Errorf("Expected url 'https://example.com/path', got '%s'", ev.URL)
+	}
+	if ev.Timestamp <= 0 {
+		t.Errorf("Expected ts > 0, got %d", ev.Timestamp)
+	}
+}
+
+func TestAPIHandler_AuditOnSuccess(t *testing.T) {
+	mockUsecase := &commontesting.MockLinkCreateUsecase{
+		GetBaseURLFunc: func() string { return "http://localhost:8080" },
+		CreateShortKeyFunc: func(ctx context.Context, URL string) (string, error) {
+			return "abc123", nil
+		},
+	}
+	rec := &recordingAuditor{}
+	handler := APIHandler(mockUsecase, rec)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com/path/"}`))
+	request.Header.Set(common.ContentType, common.ApplicationJSON)
+	request = request.WithContext(authctx.WithUserID(request.Context(), "u2"))
+	writer := httptest.NewRecorder()
+
+	handler(writer, request)
+
+	if writer.Code != http.StatusCreated {
+		t.Fatalf("Expected status code %d, got %d", http.StatusCreated, writer.Code)
+	}
+	if len(rec.events) != 1 {
+		t.Fatalf("Expected 1 audit event, got %d", len(rec.events))
+	}
+	ev := rec.events[0]
+	if ev.Action != "shorten" {
+		t.Errorf("Expected action 'shorten', got '%s'", ev.Action)
+	}
+	if ev.UserID != "u2" {
+		t.Errorf("Expected user_id 'u2', got '%s'", ev.UserID)
+	}
+	if ev.URL != "https://example.com/path" {
+		t.Errorf("Expected url 'https://example.com/path', got '%s'", ev.URL)
+	}
+	if ev.Timestamp <= 0 {
+		t.Errorf("Expected ts > 0, got %d", ev.Timestamp)
+	}
+}
+
 func TestShortenHandler_EmptyBody(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkCreateUsecase{}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(""))
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -102,7 +187,7 @@ func TestShortenHandler_EmptyBody(t *testing.T) {
 
 func TestShortenHandler_BodyReadError(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkCreateUsecase{}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", &errorReader{})
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -117,7 +202,7 @@ func TestShortenHandler_BodyReadError(t *testing.T) {
 
 func TestShortenHandler_InvalidURL(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkCreateUsecase{}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	testCases := []struct {
 		body        string
@@ -152,7 +237,7 @@ func TestShortenHandler_CreateShortKeyReturnsError(t *testing.T) {
 			return "", errors.New("generation short link error")
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -178,7 +263,7 @@ func TestShortenHandler_Success_HTTP(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -213,7 +298,7 @@ func TestShortenHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -243,7 +328,7 @@ func TestShortenHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -274,7 +359,7 @@ func TestShortenHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.
 			return expectedShortKey, nil
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -305,7 +390,7 @@ func TestShortenHandler_Success_HTTPS_TLS(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -336,7 +421,7 @@ func TestShortenHandler_Success_HTTPS_XForwardedProto(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -367,7 +452,7 @@ func TestShortenHandler_ResponseWriteError(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -403,9 +488,9 @@ func TestIsTextPlain(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
-			result := IsTextPlain(testCase.contentType)
+			result := isTextPlain(testCase.contentType)
 			if result != testCase.expected {
-				t.Errorf("IsTextPlain('%s') = %v, expected %v", testCase.contentType, result, testCase.expected)
+				t.Errorf("isTextPlain('%s') = %v, expected %v", testCase.contentType, result, testCase.expected)
 			}
 		})
 	}
@@ -576,7 +661,7 @@ func TestShortenHandler_URLCreatesWithCorrectFormat(t *testing.T) {
 			return "short123", nil
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("http://example.com/path"))
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -609,7 +694,7 @@ func TestShortenHandler_NormalizesURL(t *testing.T) {
 			return "error", nil
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com/"))
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -635,7 +720,7 @@ func TestShortenHandler_HandlesBodyWithWhitespace(t *testing.T) {
 			return "error", nil
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	requestq := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("  https://example.com  \n"))
 	requestq.Header.Set(common.ContentType, common.TextPlain)
@@ -720,7 +805,7 @@ func TestAPIHandler_WrongContentType(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
 			mockUsecase := &commontesting.MockLinkCreateUsecase{}
-			handler := APIHandler(mockUsecase)
+			handler := APIHandler(mockUsecase, nil)
 
 			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 			if testCase.contentType != "" {
@@ -751,7 +836,7 @@ func TestAPIHandler_InvalidJSON(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
 			mockUsecase := &commontesting.MockLinkCreateUsecase{}
-			handler := APIHandler(mockUsecase)
+			handler := APIHandler(mockUsecase, nil)
 
 			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(testCase.body))
 			request.Header.Set(common.ContentType, common.ApplicationJSON)
@@ -780,7 +865,7 @@ func TestAPIHandler_InvalidURL(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
 			mockUsecase := &commontesting.MockLinkCreateUsecase{}
-			handler := APIHandler(mockUsecase)
+			handler := APIHandler(mockUsecase, nil)
 
 			request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(testCase.body))
 			request.Header.Set(common.ContentType, common.ApplicationJSON)
@@ -801,7 +886,7 @@ func TestAPIHandler_CreateShortKeyReturnsError(t *testing.T) {
 			return "", errors.New("CreateShortKey error")
 		},
 	}
-	handler := APIHandler(mockUsecase)
+	handler := APIHandler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 	request.Header.Set(common.ContentType, common.ApplicationJSON)
@@ -827,7 +912,7 @@ func TestAPIHandler_Success_WithBaseURL(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := APIHandler(mockUsecase)
+	handler := APIHandler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 	request.Header.Set(common.ContentType, common.ApplicationJSON)
@@ -864,7 +949,7 @@ func TestAPIHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := APIHandler(mockUsecase)
+	handler := APIHandler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 	request.Header.Set(common.ContentType, common.ApplicationJSON)
@@ -897,7 +982,7 @@ func TestAPIHandler_Success_WithoutBaseURL_HTTPS_TLS(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := APIHandler(mockUsecase)
+	handler := APIHandler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 	request.Header.Set(common.ContentType, common.ApplicationJSON)
@@ -931,7 +1016,7 @@ func TestAPIHandler_Success_WithoutBaseURL_HTTPS_XForwardedProto(t *testing.T) {
 			return expectedShortKey, nil
 		},
 	}
-	handler := APIHandler(mockUsecase)
+	handler := APIHandler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 	request.Header.Set(common.ContentType, common.ApplicationJSON)
@@ -1177,7 +1262,7 @@ func TestShortenHandler_URLConflict(t *testing.T) {
 			return "", &domainmodel.URLConflictError{ExistingShortKey: existingShortKey}
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://example.com"))
 	request.Header.Set(common.ContentType, common.TextPlain)
@@ -1212,7 +1297,7 @@ func TestAPIHandler_URLConflict(t *testing.T) {
 			return "", &domainmodel.URLConflictError{ExistingShortKey: existingShortKey}
 		},
 	}
-	handler := APIHandler(mockUsecase)
+	handler := APIHandler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(`{"url":"https://example.com"}`))
 	request.Header.Set(common.ContentType, common.ApplicationJSON)

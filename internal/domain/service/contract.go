@@ -32,3 +32,7 @@ type AuthService interface {
 	SignUserID(userID string) string
 	ValidateSignedUserID(value string) (string, error)
 }
+
+type AuditorService interface {
+	AuditNewEvent(ctx context.Context, event model.AuditEvent)
+}

@@ -14,16 +14,22 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func NewRouter(linkCreateUsecase usecase.LinkCreateUsecase, linkReadUsecase usecase.LinkReadUsecase, linkDeleteUsecase usecase.LinkDeleteUsecase, healthCheck usecase.HealthCheckUsecase, authService service.AuthService) http.Handler {
+func NewRouter(
+	linkCreateUsecase usecase.LinkCreateUsecase,
+	linkReadUsecase usecase.LinkReadUsecase,
+	linkDeleteUsecase usecase.LinkDeleteUsecase,
+	healthCheck usecase.HealthCheckUsecase,
+	authService service.AuthService,
+	auditor service.AuditorService,
+) http.Handler {
 	router := chi.NewRouter()
-
 	router.Use(middleware.HTTPLogger, gzip.GZIP, auth.Middleware(authService))
-	router.Post("/", shorter.Handler(linkCreateUsecase))
+	router.Post("/", shorter.Handler(linkCreateUsecase, auditor))
 	router.Get("/api/user/urls", shorter.UserURLsHandler(linkReadUsecase))
-	router.Post("/api/shorten", shorter.APIHandler(linkCreateUsecase))
+	router.Post("/api/shorten", shorter.APIHandler(linkCreateUsecase, auditor))
 	router.Post("/api/shorten/batch", shorter.BatchAPIHandler(linkCreateUsecase))
 	router.Delete("/api/user/urls", shorter.UserURLsDeleteHandler(linkDeleteUsecase))
-	router.Get("/{shortKey}", resolver.Handler(linkReadUsecase))
+	router.Get("/{shortKey}", resolver.Handler(linkReadUsecase, auditor))
 	router.Get("/ping", healthcheck.Handler(healthCheck))
 	return router
 }

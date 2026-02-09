@@ -12,5 +12,5 @@ func main() {
 		log.Fatal().Err(err).Msg("Error loading config")
 	}
 
-	app.Run(cfg.ServerAddress, cfg.BaseShortURL, cfg.FileStoragePath, cfg.DatabaseAddress, cfg.SecretKey)
+	app.Run(cfg)
 }

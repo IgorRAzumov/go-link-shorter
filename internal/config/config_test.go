@@ -143,6 +143,8 @@ func TestLoad_MixedEnvAndFlag(t *testing.T) {
 type testEnv struct {
 	oldServerAddress string
 	oldBaseURL       string
+	oldAuditFile     string
+	oldAuditURL      string
 	oldArgs          []string
 }
 
@@ -159,6 +161,18 @@ func (testEnv *testEnv) restore() {
 		_ = os.Unsetenv("BASE_URL")
 	}
 
+	if testEnv.oldAuditFile != "" {
+		_ = os.Setenv("AUDIT_FILE", testEnv.oldAuditFile)
+	} else {
+		_ = os.Unsetenv("AUDIT_FILE")
+	}
+
+	if testEnv.oldAuditURL != "" {
+		_ = os.Setenv("AUDIT_URL", testEnv.oldAuditURL)
+	} else {
+		_ = os.Unsetenv("AUDIT_URL")
+	}
+
 	os.Args = testEnv.oldArgs
 }
 
@@ -166,6 +180,8 @@ func setupTestEnv(serverAddress, baseURL string) *testEnv {
 	testEnv := &testEnv{
 		oldServerAddress: os.Getenv("SERVER_ADDRESS"),
 		oldBaseURL:       os.Getenv("BASE_URL"),
+		oldAuditFile:     os.Getenv("AUDIT_FILE"),
+		oldAuditURL:      os.Getenv("AUDIT_URL"),
 		oldArgs:          os.Args,
 	}
 
@@ -180,6 +196,9 @@ func setupTestEnv(serverAddress, baseURL string) *testEnv {
 	} else {
 		_ = os.Unsetenv("BASE_URL")
 	}
+
+	_ = os.Unsetenv("AUDIT_FILE")
+	_ = os.Unsetenv("AUDIT_URL")
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 

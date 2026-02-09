@@ -7,16 +7,19 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/authctx"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 	"github.com/rs/zerolog/log"
 )
 
-func Handler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
+func Handler(usecase usecase.LinkCreateUsecase, auditor service.AuditorService) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		if !IsTextPlain(request.Header.Get(common.ContentType)) {
+		if !isTextPlain(request.Header.Get(common.ContentType)) {
 			common.MethodNotAllowedError(writer)
 			return
 		}
@@ -27,38 +30,58 @@ func Handler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
 			return
 		}
 
+		userID := authctx.UserID(request.Context())
+
 		shortKey, err := GenerateShortKey(string(body), request.Context(), writer, usecase)
 		if err != nil {
 			var conflictErr *model.URLConflictError
 			if errors.As(err, &conflictErr) {
-				sendConflictResponse(writer, GenerateShortenURL(usecase.GetBaseURL(), conflictErr.ExistingShortKey, request))
+				ok := sendConflictResponse(writer, GenerateShortenURL(usecase.GetBaseURL(), conflictErr.ExistingShortKey, request))
+				if ok && auditor != nil {
+					sendAuditEvent(auditor, request, userID, string(body))
+				}
 				return
 			}
 			return
 		}
 
-		sendResponse(writer, GenerateShortenURL(usecase.GetBaseURL(), shortKey, request))
+		ok := sendResponse(writer, GenerateShortenURL(usecase.GetBaseURL(), shortKey, request))
+		if ok && auditor != nil {
+			sendAuditEvent(auditor, request, userID, string(body))
+		}
 	}
 }
 
-func sendResponse(writer http.ResponseWriter, shortURL string) {
+func sendAuditEvent(auditor service.AuditorService, request *http.Request, userID string, auditURLRaw string) {
+	auditURL := auditURLFromRaw(auditURLRaw)
+	auditor.AuditNewEvent(request.Context(), model.AuditEvent{
+		Timestamp: time.Now().Unix(),
+		Action:    "shorten",
+		UserID:    userID,
+		URL:       auditURL,
+	})
+}
+
+func sendResponse(writer http.ResponseWriter, shortURL string) bool {
 	writer.Header().Set(common.ContentType, common.TextPlain)
 	writer.WriteHeader(http.StatusCreated)
 	_, err := writer.Write([]byte(shortURL))
 	if err != nil {
 		common.InternalError(writer, err)
-		return
+		return false
 	}
+	return true
 }
 
-func sendConflictResponse(writer http.ResponseWriter, shortURL string) {
+func sendConflictResponse(writer http.ResponseWriter, shortURL string) bool {
 	writer.Header().Set(common.ContentType, common.TextPlain)
 	writer.WriteHeader(http.StatusConflict)
 	_, err := writer.Write([]byte(shortURL))
 	if err != nil {
 		common.InternalError(writer, err)
-		return
+		return false
 	}
+	return true
 }
 
 func readBody(request *http.Request) ([]byte, error) {
@@ -87,10 +110,18 @@ func parseURL(URL string) (*url.URL, error) {
 	return parsedURL, nil
 }
 
-func IsTextPlain(contentType string) bool {
+func isTextPlain(contentType string) bool {
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil {
 		return false
 	}
 	return mediaType == common.TextPlain
+}
+
+func auditURLFromRaw(raw string) string {
+	parsed, err := parseURL(raw)
+	if err != nil {
+		return common.NormalizeURL(raw)
+	}
+	return common.NormalizeURL(parsed.String())
 }

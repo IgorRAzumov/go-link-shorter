@@ -8,13 +8,22 @@ import (
 	"testing"
 
 	commontesting "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common/testing"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/authctx"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/go-chi/chi/v5"
 )
 
+type recordingAuditor struct {
+	events []model.AuditEvent
+}
+
+func (r *recordingAuditor) AuditNewEvent(_ context.Context, e model.AuditEvent) {
+	r.events = append(r.events, e)
+}
+
 func TestResolveHandler_EmptyPath(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkReadUsecase{}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	writer := httptest.NewRecorder()
@@ -32,7 +41,7 @@ func TestResolveHandler_SingleCharPath_NotFound(t *testing.T) {
 			return "", model.ErrEmptyUser
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodGet, "/a", nil)
 	request = setURLParam(request, "shortKey", "a")
@@ -47,7 +56,7 @@ func TestResolveHandler_SingleCharPath_NotFound(t *testing.T) {
 
 func TestResolveHandler_PathLengthLessThanTwo(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkReadUsecase{}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	testCases := []struct {
 		shortKey    string
@@ -79,7 +88,7 @@ func TestResolveHandler_UsecaseReturnsError(t *testing.T) {
 			return "", errors.New("not found")
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodGet, "/abc123", nil)
 	request = setURLParam(request, "shortKey", "abc123")
@@ -98,7 +107,7 @@ func TestResolveHandler_UsecaseReturnsEmptyString(t *testing.T) {
 			return "", nil
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodGet, "/abc123", nil)
 	request = setURLParam(request, "shortKey", "abc123")
@@ -118,7 +127,7 @@ func TestResolveHandler_Returns410WhenDeleted(t *testing.T) {
 			return "", model.ErrURLDeleted
 		},
 	}
-	handler := Handler(mockUsecase)
+	handler := Handler(mockUsecase, nil)
 
 	request := httptest.NewRequest(http.MethodGet, "/"+shortKey, nil)
 	request = setURLParam(request, "shortKey", shortKey)
@@ -142,10 +151,12 @@ func TestResolveHandler_Success(t *testing.T) {
 			return expectedURL, nil
 		},
 	}
-	handler := Handler(mockUsecase)
+	rec := &recordingAuditor{}
+	handler := Handler(mockUsecase, rec)
 
 	request := httptest.NewRequest(http.MethodGet, "/"+shortKey, nil)
 	request = setURLParam(request, "shortKey", shortKey)
+	request = request.WithContext(authctx.WithUserID(request.Context(), "u3"))
 	writer := httptest.NewRecorder()
 
 	handler(writer, request)
@@ -157,6 +168,20 @@ func TestResolveHandler_Success(t *testing.T) {
 	location := writer.Header().Get("Location")
 	if location != expectedURL {
 		t.Errorf("Expected Location header '%s', got '%s'", expectedURL, location)
+	}
+
+	if len(rec.events) != 1 {
+		t.Fatalf("Expected 1 audit event, got %d", len(rec.events))
+	}
+	ev := rec.events[0]
+	if ev.Action != "follow" {
+		t.Errorf("Expected action 'follow', got '%s'", ev.Action)
+	}
+	if ev.UserID != "u3" {
+		t.Errorf("Expected user_id 'u3', got '%s'", ev.UserID)
+	}
+	if ev.URL != expectedURL {
+		t.Errorf("Expected url '%s', got '%s'", expectedURL, ev.URL)
 	}
 }
 
@@ -181,7 +206,7 @@ func TestResolveHandler_ExtractsShortKeyCorrectly(t *testing.T) {
 					return "https://example.com", nil
 				},
 			}
-			handler := Handler(mockUsecase)
+			handler := Handler(mockUsecase, nil)
 
 			request := httptest.NewRequest(http.MethodGet, testCase.path, nil)
 			request = setURLParam(request, "shortKey", testCase.shortKey)
