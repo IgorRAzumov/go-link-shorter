@@ -56,9 +56,9 @@ func (service *Service) ProcessBatchShortenRequests(ctx context.Context, request
 
 func (service *Service) prepareBatchData(requests []model.BatchShortenRequest, ctx context.Context, resolver service.ResolverService, userID string) (map[string]string, map[string]string, []*model.Link) {
 	normalizedMap := make(map[string]string, len(requests))
-	urlToShortKey := make(map[string]string)
-	linksToSave := make([]*model.Link, 0)
-	processedURLs := make(map[string]bool)
+	urlToShortKey := make(map[string]string, len(requests))
+	linksToSave := make([]*model.Link, 0, len(requests))
+	processedURLs := make(map[string]bool, len(requests))
 
 	for _, req := range requests {
 		normalizedURL := urlutil.NormalizeURL(req.OriginalURL)

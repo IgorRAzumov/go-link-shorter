@@ -2,6 +2,7 @@ package rest
 
 import (
 	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/healthcheck"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/resolver"
@@ -21,6 +22,7 @@ func NewRouter(
 	healthCheck usecase.HealthCheckUsecase,
 	authService service.AuthService,
 	auditor service.AuditorService,
+	enablePprof bool,
 ) http.Handler {
 	router := chi.NewRouter()
 	router.Use(middleware.HTTPLogger, gzip.GZIP, auth.Middleware(authService))
@@ -31,5 +33,10 @@ func NewRouter(
 	router.Delete("/api/user/urls", shorter.UserURLsDeleteHandler(linkDeleteUsecase))
 	router.Get("/{shortKey}", resolver.Handler(linkReadUsecase, auditor))
 	router.Get("/ping", healthcheck.Handler(healthCheck))
+
+	if enablePprof {
+		router.Handle("/debug/pprof/*", http.DefaultServeMux)
+		router.Handle("/debug/pprof", http.RedirectHandler("/debug/pprof/", http.StatusMovedPermanently))
+	}
 	return router
 }

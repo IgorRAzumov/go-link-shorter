@@ -17,6 +17,7 @@ type Config struct {
 	SecretKey       string `env:"SECRET_KEY" env-default:"default-secret-key-change-in-production"`
 	AuditFile       string `env:"AUDIT_FILE"`
 	AuditURL        string `env:"AUDIT_URL"`
+	EnablePprof     bool   `env:"ENABLE_PPROF" env-default:"false"`
 }
 
 func Load() (*Config, error) {
@@ -66,6 +67,7 @@ func extractStartConfig(cfg *Config) {
 	var secretKeyFlag string
 	var auditFileFlag string
 	var auditURLFlag string
+	var enablePprofFlag bool
 
 	flag.StringVar(&serverAddressFlag, "a", "localhost:8080", "server address")
 	flag.StringVar(&baseShortURLFlag, "b", "", "base shorter URL")
@@ -74,6 +76,7 @@ func extractStartConfig(cfg *Config) {
 	flag.StringVar(&secretKeyFlag, "k", "", "secret key for cookie signing")
 	flag.StringVar(&auditFileFlag, "audit-file", "", "audit file path (append json line events)")
 	flag.StringVar(&auditURLFlag, "audit-url", "", "audit receiver URL (POST json event)")
+	flag.BoolVar(&enablePprofFlag, "pprof", false, "enable pprof debug endpoints at /debug/pprof/")
 	flag.Parse()
 
 	if envServerAddress == "" || envServerAddress == "localhost:8080" {
@@ -101,4 +104,5 @@ func extractStartConfig(cfg *Config) {
 	if envAuditURL == "" {
 		cfg.AuditURL = auditURLFlag
 	}
+	cfg.EnablePprof = cfg.EnablePprof || enablePprofFlag
 }

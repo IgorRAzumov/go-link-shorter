@@ -58,8 +58,8 @@ func (usecase *ReaderUsecase) GetBaseURL() string {
 
 func (usecase *CreatorUsecase) CreateShortKeysBatch(ctx context.Context, urls []string) (map[string]string, error) {
 	userID := authctx.UserID(ctx)
-	result := make(map[string]string)
-	linksToSave := make([]*model.Link, 0)
+	result := make(map[string]string, len(urls))
+	linksToSave := make([]*model.Link, 0, len(urls))
 
 	for _, url := range urls {
 		normalizedURL := urlutil.NormalizeURL(url)
