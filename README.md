@@ -43,6 +43,22 @@ git fetch template && git checkout template/v2 .github
 - **Hexagonal Architecture**
 - **Layered Architecture**
 
+## Swagger
+
+Документация API доступна по адресу `/swagger/index.html` при запущенном сервере.
+
+Регенерация документации после изменения аннотаций в хендлерах:
+
+```bash
+go generate ./internal/controller/rest/...
+```
+
+Или вручную:
+
+```bash
+swag init -g internal/controller/rest/docs.go -o docs --parseDependency --parseInternal
+```
+
 ## Профилирование памяти (pprof)
 
 1. Снять профиль до оптимизации:

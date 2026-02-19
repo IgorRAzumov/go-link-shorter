@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// LinkStorage — in-memory реализация LinkRepository с опциональной персистентностью в файл.
 type LinkStorage struct {
 	linksByID  sync.Map
 	linksByURL sync.Map
@@ -19,6 +20,7 @@ type LinkStorage struct {
 	mu         sync.RWMutex
 }
 
+// NewInMemoryFileStorage создаёт хранилище. При filePath == "" данные не сохраняются на диск.
 func NewInMemoryFileStorage(filePath string) (*LinkStorage, error) {
 	storage := &LinkStorage{
 		filePath: filePath,

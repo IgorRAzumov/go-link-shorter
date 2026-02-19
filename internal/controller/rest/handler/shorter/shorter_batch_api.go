@@ -11,6 +11,17 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
 
+// BatchAPIHandler возвращает обработчик POST /api/shorten/batch — пакетное сокращение URL.
+//
+// @Summary      Batch shorten URLs
+// @Description  Пакетное сокращение нескольких URL
+// @Tags         shorter
+// @Accept       json
+// @Produce      json
+// @Param        request  body      []model.BatchShortenRequest  true  "Список URL"
+// @Success      201      {array}   model.BatchShortenResponse
+// @Failure      400      {string}  string  "Некорректный запрос"
+// @Router       /api/shorten/batch [post]
 func BatchAPIHandler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if !IsApplicationJSON(request.Header.Get(common.ContentType)) {
@@ -60,6 +71,7 @@ func BatchAPIHandler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
 	}
 }
 
+// IsApplicationJSON проверяет, что Content-Type — application/json.
 func IsApplicationJSON(contentType string) bool {
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil {

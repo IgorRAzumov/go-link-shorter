@@ -87,3 +87,17 @@ func (mock *MockLinkDeleteUsecase) DeleteUserURLs(ctx context.Context, shortKeys
 }
 
 var _ usecase.LinkDeleteUsecase = (*MockLinkDeleteUsecase)(nil)
+
+// MockHealthCheckUsecase — мок для HealthCheckUsecase.
+type MockHealthCheckUsecase struct {
+	CheckSystemConnectionsFunc func(ctx context.Context) (bool, error)
+}
+
+func (m *MockHealthCheckUsecase) CheckSystemConnections(ctx context.Context) (bool, error) {
+	if m.CheckSystemConnectionsFunc != nil {
+		return m.CheckSystemConnectionsFunc(ctx)
+	}
+	return true, nil
+}
+
+var _ usecase.HealthCheckUsecase = (*MockHealthCheckUsecase)(nil)

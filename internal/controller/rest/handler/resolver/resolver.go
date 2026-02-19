@@ -13,6 +13,16 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// Handler возвращает обработчик GET /{shortKey} — редирект на полный URL по короткому ключу.
+//
+// @Summary      Resolve short URL
+// @Description  Редирект 307 на полный URL по короткому ключу
+// @Tags         resolver
+// @Param        shortKey  path  string  true  "Короткий ключ"
+// @Success      307  {string}  string  "Location: полный URL"
+// @Failure      400  {string}  string  "Не найден"
+// @Failure      410  {string}  string  "URL удалён"
+// @Router       /{shortKey} [get]
 func Handler(usecase usecase.LinkReadUsecase, auditor service.AuditorService) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		shortKey := chi.URLParam(request, "shortKey")

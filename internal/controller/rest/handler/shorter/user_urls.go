@@ -9,11 +9,22 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
 
+// UserURLResponse — элемент ответа GET /api/user/urls.
 type UserURLResponse struct {
-	ShortURL    string `json:"short_url"`
-	OriginalURL string `json:"original_url"`
+	ShortURL    string `json:"short_url"`    // Сокращённый URL
+	OriginalURL string `json:"original_url"` // Исходный URL
 }
 
+// UserURLsHandler возвращает обработчик GET /api/user/urls — список ссылок текущего пользователя.
+//
+// @Summary      Get user URLs
+// @Description  Список сокращённых ссылок текущего пользователя
+// @Tags         user
+// @Produce      json
+// @Success      200   {array}   UserURLResponse
+// @Success      204   {string}  string  "Нет ссылок"
+// @Failure      401   {string}  string  "Не авторизован"
+// @Router       /api/user/urls [get]
 func UserURLsHandler(usecase usecase.LinkReadUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		userID := authctx.UserID(request.Context())

@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// GenerateShortenURL формирует полный сокращённый URL из baseURL или scheme+host запроса.
 func GenerateShortenURL(baseURL string, shortKey string, request *http.Request) string {
 	var result string
 	if baseURL != "" {
@@ -25,6 +26,7 @@ func GenerateShortenURL(baseURL string, shortKey string, request *http.Request) 
 	return result
 }
 
+// GenerateShortKey вызывает use case для создания короткого ключа по URL.
 func GenerateShortKey(body string, ctx context.Context, writer http.ResponseWriter, usecase usecase.LinkCreateUsecase) (string, error) {
 	originalURL, err := parseURL(body)
 	log.Logger.Debug().Msg("generate originalURL: " + body)
