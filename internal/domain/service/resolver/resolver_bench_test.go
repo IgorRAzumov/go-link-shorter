@@ -35,8 +35,7 @@ func BenchmarkGetFullLink(b *testing.B) {
 
 	service := NewResolverService(storage)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = service.GetFullLink(ctx, "abc123")
 	}
 }
@@ -55,8 +54,7 @@ func BenchmarkGetShortKeyByURL(b *testing.B) {
 
 	service := NewResolverService(storage)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = service.GetShortKeyByURL(ctx, "https://example.com/long/url/path")
 	}
 }
@@ -77,8 +75,7 @@ func BenchmarkGetFullLink_DB(b *testing.B) {
 
 	service := NewResolverService(storage)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = service.GetFullLink(ctx, "bench_resolver_abc")
 	}
 }
@@ -99,8 +96,7 @@ func BenchmarkGetShortKeyByURL_DB(b *testing.B) {
 
 	service := NewResolverService(storage)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = service.GetShortKeyByURL(ctx, "https://example.com/bench/resolver/url")
 	}
 }

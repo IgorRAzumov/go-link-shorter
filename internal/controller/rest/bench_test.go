@@ -38,8 +38,7 @@ func BenchmarkAPIHandler_Shorten(b *testing.B) {
 	router := benchRouter()
 	body := []byte(`{"url":"https://example.com/long/url/path"}`)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest(http.MethodPost, "/api/shorten", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req = req.WithContext(authctx.WithUserID(req.Context(), "user-1"))
@@ -59,8 +58,7 @@ func BenchmarkBatchAPIHandler(b *testing.B) {
 	}
 	body, _ := json.Marshal(requests)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req = req.WithContext(authctx.WithUserID(req.Context(), "user-1"))
@@ -72,22 +70,23 @@ func BenchmarkBatchAPIHandler(b *testing.B) {
 func BenchmarkAPIHandler_Shorten_DB(b *testing.B) {
 	router := benchRouterDB(b)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	var i int
+	for b.Loop() {
 		body := []byte(fmt.Sprintf(`{"url":"https://example.com/db/shorten/%d"}`, i))
 		req := httptest.NewRequest(http.MethodPost, "/api/shorten", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req = req.WithContext(authctx.WithUserID(req.Context(), "user-1"))
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
+		i++
 	}
 }
 
 func BenchmarkBatchAPIHandler_DB(b *testing.B) {
 	router := benchRouterDB(b)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	var i int
+	for b.Loop() {
 		requests := make([]map[string]string, 50)
 		for j := range requests {
 			requests[j] = map[string]string{
@@ -101,6 +100,7 @@ func BenchmarkBatchAPIHandler_DB(b *testing.B) {
 		req = req.WithContext(authctx.WithUserID(req.Context(), "user-1"))
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
+		i++
 	}
 }
 

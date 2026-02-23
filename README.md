@@ -170,3 +170,14 @@ Type: alloc_space
 
 Бенчмарк: base 357 iter, 2172 allocs/op → result 488 iter, 1873 allocs/op. Меньше аллокаций (−299), выше throughput (
 +37%).
+
+## Анализ результатов оптимизации
+
+**BenchmarkAPIHandler_Shorten (память):** По diff pprof видно снижение аллокаций в `uuid.New` (−0.18MB). Основные
+затраты остаются в HTTP-стеке (bufio, Request, json.Decoder), middleware и auth — это штатная работа обработчика.
+
+**BenchmarkBatchSave (БД):** Оптимизация — bulk INSERT вместо построчных вставок. Один запрос
+`INSERT ... VALUES ($1..$4), ($5..$8), ...` вместо множества `ExecContext` по строкам. Снижение: ~21MB по
+`database/sql` (подготовка/выполнение statement), меньше `strings.genSplit` при сборке запроса. Итог: throughput +37% (
+357→488 iter/s), аллокаций −299 на операцию (2172→1873).
+

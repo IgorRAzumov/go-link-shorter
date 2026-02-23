@@ -29,16 +29,17 @@ func BenchmarkSave(b *testing.B) {
 
 	ctx := context.Background()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	var i int
+	for b.Loop() {
 		link := &model.Link{
-			ShortKey: fmt.Sprintf("bench_save_%d_%d", i, b.N),
-			FullURL:  fmt.Sprintf("https://example.com/bench/save/%d/%d", i, b.N),
+			ShortKey: fmt.Sprintf("bench_save_%d", i),
+			FullURL:  fmt.Sprintf("https://example.com/bench/save/%d", i),
 			UserID:   "bench-user",
 		}
 		if err := storage.Save(ctx, link); err != nil {
 			b.Fatalf("Save failed: %v", err)
 		}
+		i++
 	}
 }
 
@@ -56,8 +57,7 @@ func BenchmarkGetByShortKey(b *testing.B) {
 		UserID:   "bench-user",
 	})
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = storage.GetByShortKey(ctx, "bench_getkey")
 	}
 }
@@ -94,18 +94,19 @@ func BenchmarkBatchSave(b *testing.B) {
 
 	ctx := context.Background()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	var i int
+	for b.Loop() {
 		links := make([]*model.Link, 100)
 		for j := range links {
 			links[j] = &model.Link{
-				ShortKey: fmt.Sprintf("bench_batch_%d_%d_%d", i, j, b.N),
-				FullURL:  fmt.Sprintf("https://example.com/bench/batch/%d/%d/%d", i, j, b.N),
+				ShortKey: fmt.Sprintf("bench_batch_%d_%d", i, j),
+				FullURL:  fmt.Sprintf("https://example.com/bench/batch/%d/%d", i, j),
 				UserID:   "bench-user",
 			}
 		}
 		if err := storage.BatchSave(ctx, links); err != nil {
 			b.Fatalf("BatchSave failed: %v", err)
 		}
+		i++
 	}
 }

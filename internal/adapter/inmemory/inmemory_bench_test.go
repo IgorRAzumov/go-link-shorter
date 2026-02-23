@@ -15,14 +15,15 @@ func BenchmarkSave(b *testing.B) {
 	}
 	ctx := context.Background()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	var i int
+	for b.Loop() {
 		link := &model.Link{
 			ShortKey: fmt.Sprintf("key%d", i%100),
 			FullURL:  fmt.Sprintf("https://example.com/page%d", i%100),
 			UserID:   "user-1",
 		}
 		_ = storage.Save(ctx, link)
+		i++
 	}
 }
 
@@ -38,8 +39,7 @@ func BenchmarkGetByShortKey(b *testing.B) {
 		UserID:   "user-1",
 	})
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = storage.GetByShortKey(ctx, "testkey")
 	}
 }
@@ -58,8 +58,7 @@ func BenchmarkGetByUserID(b *testing.B) {
 		})
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = storage.GetByUserID(ctx, "user-1")
 	}
 }
@@ -79,8 +78,7 @@ func BenchmarkBatchSave(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = storage.BatchSave(ctx, links)
 	}
 }
