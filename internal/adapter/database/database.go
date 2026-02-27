@@ -22,10 +22,12 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
+// Storage — PostgreSQL-реализация LinkRepository.
 type Storage struct {
 	db *sql.DB
 }
 
+// NewStorage создаёт хранилище ссылок в PostgreSQL. При dsn == "" возвращает пустой Storage (nil db).
 func NewStorage(dsn string) (*Storage, error) {
 	if dsn == "" {
 		return &Storage{}, nil
@@ -245,7 +247,12 @@ func (storage *Storage) batchSavePerRow(ctx context.Context, links []*model.Link
 		log.Error().Err(err).Msg("Failed to prepare batch insert statement")
 		return err
 	}
-	defer stmt.Close()
+	defer func(stmt *sql.Stmt) {
+		err := stmt.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to close prepared statement")
+		}
+	}(stmt)
 
 	for _, link := range links {
 		_, err := stmt.ExecContext(ctx, uuid.NewString(), link.ShortKey, link.FullURL, link.UserID)

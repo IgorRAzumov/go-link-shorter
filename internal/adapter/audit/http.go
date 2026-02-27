@@ -1,7 +1,6 @@
 package audit
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,21 +9,32 @@ import (
 	"time"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 type HTTPAuditObserver struct {
 	url    string
-	client *http.Client
+	client *retryablehttp.Client
 }
 
-const timeout = 5 * time.Second
+const (
+	timeout      = 5 * time.Second
+	retryMax     = 3
+	retryWaitMin = 100 * time.Millisecond
+	retryWaitMax = 2 * time.Second
+)
 
 func NewHTTPAuditObserver(url string) *HTTPAuditObserver {
+	client := retryablehttp.NewClient()
+	client.RetryMax = retryMax
+	client.RetryWaitMin = retryWaitMin
+	client.RetryWaitMax = retryWaitMax
+	client.HTTPClient = &http.Client{Timeout: timeout}
+	client.Logger = nil
+
 	return &HTTPAuditObserver{
-		url: url,
-		client: &http.Client{
-			Timeout: timeout,
-		},
+		url:    url,
+		client: client,
 	}
 }
 
@@ -37,7 +47,7 @@ func (observer *HTTPAuditObserver) Save(ctx context.Context, event model.AuditEv
 		return fmt.Errorf("marshal audit event: %w", err)
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, observer.url, bytes.NewReader(bodyBytes))
+	request, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, observer.url, bodyBytes)
 	if err != nil {
 		return fmt.Errorf("create audit request: %w", err)
 	}

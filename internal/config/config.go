@@ -9,6 +9,7 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
+// Config — конфигурация приложения (сервер, хранилище, аудит).
 type Config struct {
 	ServerAddress   string `env:"SERVER_ADDRESS" env-default:"localhost:8080"`
 	BaseShortURL    string `env:"BASE_URL"`
@@ -20,6 +21,7 @@ type Config struct {
 	EnablePprof     bool   `env:"ENABLE_PPROF" env-default:"false"`
 }
 
+// Load загружает конфигурацию из переменных окружения и флагов.
 func Load() (*Config, error) {
 	config := &Config{}
 	extractStartConfig(config)

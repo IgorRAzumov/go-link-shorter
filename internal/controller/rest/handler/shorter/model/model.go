@@ -1,19 +1,23 @@
 package model
 
+// ShortenRequest — тело запроса POST /api/shorten.
 type ShortenRequest struct {
-	URL string `json:"url"`
+	URL string `json:"url"` // Исходный URL для сокращения
 }
 
+// ShortenResponse — тело ответа POST /api/shorten.
 type ShortenResponse struct {
-	Result string `json:"result"`
+	Result string `json:"result"` // Сокращённый URL
 }
 
+// BatchShortenRequest — элемент запроса POST /api/shorten/batch.
 type BatchShortenRequest struct {
-	CorrelationID string `json:"correlation_id"`
-	OriginalURL   string `json:"original_url"`
+	CorrelationID string `json:"correlation_id"` // ID для сопоставления с ответом
+	OriginalURL   string `json:"original_url"`   // Исходный URL
 }
 
+// BatchShortenResponse — элемент ответа POST /api/shorten/batch.
 type BatchShortenResponse struct {
-	CorrelationID string `json:"correlation_id"`
-	ShortURL      string `json:"short_url"`
+	CorrelationID string `json:"correlation_id"` // ID для сопоставления с запросом
+	ShortURL      string `json:"short_url"`      // Сокращённый URL
 }

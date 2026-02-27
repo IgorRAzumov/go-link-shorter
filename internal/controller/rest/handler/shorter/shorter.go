@@ -17,6 +17,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Handler возвращает обработчик POST / — сокращение URL из тела запроса (Content-Type: text/plain).
+//
+// @Summary      Shorten URL (text/plain)
+// @Description  Создание короткой ссылки из тела запроса
+// @Tags         shorter
+// @Accept       plain
+// @Produce      plain
+// @Param        url  body      string  true  "URL для сокращения"
+// @Success      201  {string}  string  "Сокращённый URL"
+// @Failure      400  {string}  string  "Некорректный запрос"
+// @Failure      409  {string}  string  "URL уже существует"
+// @Router       / [post]
 func Handler(usecase usecase.LinkCreateUsecase, auditor service.AuditorService) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if !isTextPlain(request.Header.Get(common.ContentType)) {

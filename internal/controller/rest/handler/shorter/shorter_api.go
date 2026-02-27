@@ -15,6 +15,18 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
 
+// APIHandler возвращает обработчик POST /api/shorten — сокращение URL (Content-Type: application/json).
+//
+// @Summary      Shorten URL (JSON)
+// @Description  Создание короткой ссылки (application/json)
+// @Tags         shorter
+// @Accept       json
+// @Produce      json
+// @Param        request  body      model.ShortenRequest  true  "URL для сокращения"
+// @Success      201      {object}  model.ShortenResponse
+// @Failure      400      {string}  string  "Некорректный запрос"
+// @Failure      409      {object}  model.ShortenResponse  "URL уже существует"
+// @Router       /api/shorten [post]
 func APIHandler(usecase usecase.LinkCreateUsecase, auditor service.AuditorService) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if request.Header.Get(common.ContentType) != common.ApplicationJSON {

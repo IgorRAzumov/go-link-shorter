@@ -6,6 +6,7 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 )
 
+// LinkRepository определяет контракт хранилища ссылок.
 type LinkRepository interface {
 	GetByShortKey(ctx context.Context, shortURL string) (fullURL string, isDeleted bool)
 
@@ -22,10 +23,12 @@ type LinkRepository interface {
 	MarkDeleted(ctx context.Context, userID string, shortKeys []string) error
 }
 
+// HealthCheckRepository определяет контракт проверки доступности хранилища.
 type HealthCheckRepository interface {
 	CheckStorageConnection(ctx context.Context) (bool, error)
 }
 
+// AuditRepository определяет контракт сохранения аудит-событий.
 type AuditRepository interface {
 	Save(ctx context.Context, event model.AuditEvent) error
 }

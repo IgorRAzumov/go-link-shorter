@@ -66,8 +66,7 @@ func BenchmarkGenerateShortKey(b *testing.B) {
 	service := NewShorterService(repo)
 	url := "https://example.com/path/to/long/url"
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = service.GenerateShortKey(url)
 	}
 }
@@ -83,8 +82,7 @@ func BenchmarkCreateShortKey(b *testing.B) {
 	url := "https://example.com/path"
 	userID := "user-123"
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = service.CreateShortKey(ctx, url, userID)
 	}
 }
@@ -106,8 +104,7 @@ func BenchmarkProcessBatchShortenRequests(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = service.ProcessBatchShortenRequests(ctx, requests, resolver, "user-123")
 	}
 }
@@ -137,10 +134,11 @@ func BenchmarkCreateShortKey_DB(b *testing.B) {
 	ctx := context.Background()
 	userID := "bench-user"
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	var i int
+	for b.Loop() {
 		url := fmt.Sprintf("https://example.com/db/create/%d", i)
 		_, _ = service.CreateShortKey(ctx, url, userID)
+		i++
 	}
 }
 
@@ -155,8 +153,8 @@ func BenchmarkProcessBatchShortenRequests_DB(b *testing.B) {
 	resolverSvc := resolver.NewResolverService(storage)
 	ctx := context.Background()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	var i int
+	for b.Loop() {
 		requests := make([]model.BatchShortenRequest, 100)
 		for j := range requests {
 			requests[j] = model.BatchShortenRequest{
@@ -165,5 +163,6 @@ func BenchmarkProcessBatchShortenRequests_DB(b *testing.B) {
 			}
 		}
 		_, _ = service.ProcessBatchShortenRequests(ctx, requests, resolverSvc, "bench-user")
+		i++
 	}
 }

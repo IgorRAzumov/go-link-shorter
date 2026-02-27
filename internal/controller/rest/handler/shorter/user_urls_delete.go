@@ -9,6 +9,16 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
 
+// UserURLsDeleteHandler возвращает обработчик DELETE /api/user/urls — мягкое удаление ссылок пользователя.
+//
+// @Summary      Delete user URLs
+// @Description  Мягкое удаление ссылок по short_key
+// @Tags         user
+// @Accept       json
+// @Param        short_keys  body  []string  true  "Список short_key для удаления"
+// @Success      202  {string}  string  "Принято"
+// @Failure      401  {string}  string  "Не авторизован"
+// @Router       /api/user/urls [delete]
 func UserURLsDeleteHandler(usecase usecase.LinkDeleteUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		userID := authctx.UserID(request.Context())

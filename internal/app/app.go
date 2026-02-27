@@ -29,7 +29,14 @@ func Run(config *config.Config) {
 
 	resolverService := resolver.NewResolverService(linkRepository)
 	authService := authservice.NewAuthService(config.SecretKey)
-	auditorService := initAuditorService(config.AuditFile, config.AuditURL)
+	auditorService, closeAudit := initAuditorService(config.AuditFile, config.AuditURL)
+	if auditorService != nil && closeAudit != nil {
+		defer func() {
+			if err := closeAudit(); err != nil {
+				log.Error().Err(err).Msg("Failed to close audit file")
+			}
+		}()
+	}
 
 	deleteService := deleter.NewDeleterService(linkRepository, deleter.DefaultMaxBatch)
 	deleteService.Start()
@@ -67,18 +74,26 @@ func Run(config *config.Config) {
 	deleteService.Wait()
 }
 
-func initAuditorService(auditFile, auditURL string) service.AuditorService {
+func initAuditorService(auditFile, auditURL string) (service.AuditorService, func() error) {
 	if auditFile == "" && auditURL == "" {
-		return nil
+		return nil, nil
 	}
+
+	var closeAudit func() error = nil
 	publisher := audit.NewAuditService()
+
 	if auditFile != "" {
-		publisher.Register(auditadapter.NewFileObserver(auditFile))
+		observer, closer, err := auditadapter.NewFileObserver(auditFile)
+		if err != nil {
+			log.Fatal().Err(err).Str("audit_file", auditFile).Msg("Failed to open audit file")
+		}
+		publisher.Register(observer)
+		closeAudit = closer
 	}
 	if auditURL != "" {
 		publisher.Register(auditadapter.NewHTTPAuditObserver(auditURL))
 	}
-	return publisher
+	return publisher, closeAudit
 }
 
 func initStorage(databaseDSN, fileStoragePath string) repository.LinkRepository {

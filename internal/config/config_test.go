@@ -7,50 +7,42 @@ import (
 )
 
 func TestLoad_DefaultValues(t *testing.T) {
-	testEnv := setupTestEnv("", "")
-	defer testEnv.restore()
+	setupTestEnv(t, "", "")
 
 	cfg := loadConfigOrFail(t)
 	assertConfig(t, cfg, "localhost:8080", "")
 }
 
 func TestLoad_ServerAddressFromEnv(t *testing.T) {
-	testEnv := setupTestEnv("0.0.0.0:9090", "")
-	defer testEnv.restore()
+	setupTestEnv(t, "0.0.0.0:9090", "")
 
 	cfg := loadConfigOrFail(t)
 	assertConfig(t, cfg, "0.0.0.0:9090", "")
 }
 
 func TestLoad_BaseURLFromEnv(t *testing.T) {
-	testEnv := setupTestEnv("", "http://example.com")
-	defer testEnv.restore()
+	setupTestEnv(t, "", "http://example.com")
 
 	cfg := loadConfigOrFail(t)
 	assertConfig(t, cfg, "localhost:8080", "http://example.com")
 }
 
 func TestLoad_BothFromEnv(t *testing.T) {
-	testEnv := setupTestEnv("127.0.0.1:3000", "https://myserver.com")
-	defer testEnv.restore()
+	setupTestEnv(t, "127.0.0.1:3000", "https://myserver.com")
 
 	cfg := loadConfigOrFail(t)
 	assertConfig(t, cfg, "127.0.0.1:3000", "https://myserver.com")
 }
 
 func TestLoad_EnvOverridesFlag(t *testing.T) {
-	testEnv, restoreFlags := setupTestEnvWithFlags("env-server:8080", "http://env-base.com", []string{"test", "-a", "flag-server:9090", "-b", "http://flag-base.com"})
-	defer testEnv.restore()
-	defer restoreFlags()
+	setupTestEnvWithFlags(t, "env-server:8080", "http://env-base.com", []string{"test", "-a", "flag-server:9090", "-b", "http://flag-base.com"})
 
 	cfg := loadConfigOrFail(t)
 	assertConfig(t, cfg, "env-server:8080", "http://env-base.com")
 }
 
 func TestLoad_FlagOverridesDefault(t *testing.T) {
-	testEnv, restoreFlags := setupTestEnvWithFlags("", "", []string{"test", "-a", "flag-server:7777", "-b", "http://flag-base.com"})
-	defer testEnv.restore()
-	defer restoreFlags()
+	setupTestEnvWithFlags(t, "", "", []string{"test", "-a", "flag-server:7777", "-b", "http://flag-base.com"})
 
 	cfg := loadConfigOrFail(t)
 	assertConfig(t, cfg, "flag-server:7777", "http://flag-base.com")
@@ -70,8 +62,7 @@ func TestLoad_BaseURLValidation_ValidURL(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			testEnv := setupTestEnv("", tc.baseURL)
-			defer testEnv.restore()
+			setupTestEnv(t, "", tc.baseURL)
 
 			cfg := loadConfigOrFail(t)
 
@@ -102,8 +93,7 @@ func TestLoad_BaseURLValidation_InvalidURL(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			testEnv := setupTestEnv("", tc.baseURL)
-			defer testEnv.restore()
+			setupTestEnv(t, "", tc.baseURL)
 
 			cfg, err := Load()
 
@@ -124,99 +114,34 @@ func TestLoad_BaseURLValidation_InvalidURL(t *testing.T) {
 }
 
 func TestLoad_BaseURLTrailingSlashRemoved(t *testing.T) {
-	testEnv := setupTestEnv("", "http://example.com/")
-	defer testEnv.restore()
+	setupTestEnv(t, "", "http://example.com/")
 
 	cfg := loadConfigOrFail(t)
 	assertConfig(t, cfg, "localhost:8080", "http://example.com")
 }
 
 func TestLoad_MixedEnvAndFlag(t *testing.T) {
-	testEnv, restoreFlags := setupTestEnvWithFlags("env-server:8080", "", []string{"test", "-b", "http://flag-base.com"})
-	defer testEnv.restore()
-	defer restoreFlags()
+	setupTestEnvWithFlags(t, "env-server:8080", "", []string{"test", "-b", "http://flag-base.com"})
 
 	cfg := loadConfigOrFail(t)
 	assertConfig(t, cfg, "env-server:8080", "http://flag-base.com")
 }
 
-type testEnv struct {
-	oldServerAddress string
-	oldBaseURL       string
-	oldAuditFile     string
-	oldAuditURL      string
-	oldArgs          []string
-}
-
-func (testEnv *testEnv) restore() {
-	if testEnv.oldServerAddress != "" {
-		_ = os.Setenv("SERVER_ADDRESS", testEnv.oldServerAddress)
-	} else {
-		_ = os.Unsetenv("SERVER_ADDRESS")
-	}
-
-	if testEnv.oldBaseURL != "" {
-		_ = os.Setenv("BASE_URL", testEnv.oldBaseURL)
-	} else {
-		_ = os.Unsetenv("BASE_URL")
-	}
-
-	if testEnv.oldAuditFile != "" {
-		_ = os.Setenv("AUDIT_FILE", testEnv.oldAuditFile)
-	} else {
-		_ = os.Unsetenv("AUDIT_FILE")
-	}
-
-	if testEnv.oldAuditURL != "" {
-		_ = os.Setenv("AUDIT_URL", testEnv.oldAuditURL)
-	} else {
-		_ = os.Unsetenv("AUDIT_URL")
-	}
-
-	os.Args = testEnv.oldArgs
-}
-
-func setupTestEnv(serverAddress, baseURL string) *testEnv {
-	testEnv := &testEnv{
-		oldServerAddress: os.Getenv("SERVER_ADDRESS"),
-		oldBaseURL:       os.Getenv("BASE_URL"),
-		oldAuditFile:     os.Getenv("AUDIT_FILE"),
-		oldAuditURL:      os.Getenv("AUDIT_URL"),
-		oldArgs:          os.Args,
-	}
-
-	if serverAddress != "" {
-		_ = os.Setenv("SERVER_ADDRESS", serverAddress)
-	} else {
-		_ = os.Unsetenv("SERVER_ADDRESS")
-	}
-
-	if baseURL != "" {
-		_ = os.Setenv("BASE_URL", baseURL)
-	} else {
-		_ = os.Unsetenv("BASE_URL")
-	}
-
-	_ = os.Unsetenv("AUDIT_FILE")
-	_ = os.Unsetenv("AUDIT_URL")
-
+func setupTestEnv(t *testing.T, serverAddress, baseURL string) {
+	t.Helper()
+	t.Setenv("SERVER_ADDRESS", serverAddress)
+	t.Setenv("BASE_URL", baseURL)
+	t.Setenv("AUDIT_FILE", "")
+	t.Setenv("AUDIT_URL", "")
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-
-	return testEnv
 }
 
-func setupTestFlags(args []string) func() {
+func setupTestEnvWithFlags(t *testing.T, serverAddress, baseURL string, flagArgs []string) {
+	t.Helper()
+	setupTestEnv(t, serverAddress, baseURL)
 	oldArgs := os.Args
-	os.Args = args
-	return func() {
-		os.Args = oldArgs
-	}
-}
-
-func setupTestEnvWithFlags(serverAddress, baseURL string, flagArgs []string) (*testEnv, func()) {
-	testEnv := setupTestEnv(serverAddress, baseURL)
-	restoreFlags := setupTestFlags(flagArgs)
-	return testEnv, restoreFlags
+	os.Args = flagArgs
+	t.Cleanup(func() { os.Args = oldArgs })
 }
 
 func loadConfigOrFail(t *testing.T) *Config {
