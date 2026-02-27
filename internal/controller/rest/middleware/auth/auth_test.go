@@ -28,7 +28,7 @@ func TestAuthMiddleware_CreatesCookieIfNotExists(t *testing.T) {
 	middleware(handler).ServeHTTP(rr, req)
 
 	resp := rr.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	cookies := resp.Cookies()
 	if len(cookies) == 0 {
 		t.Error("Expected cookie to be set")
@@ -96,7 +96,7 @@ func TestAuthMiddleware_RejectsInvalidCookie(t *testing.T) {
 
 	// Should create a new cookie since the old one is invalid
 	resp := rr.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	cookies := resp.Cookies()
 	if len(cookies) == 0 {
 		t.Error("Expected new cookie to be set")

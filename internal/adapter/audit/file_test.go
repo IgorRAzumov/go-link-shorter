@@ -31,8 +31,8 @@ func TestFileObserver_Notify_AppendsJSONLine(t *testing.T) {
 		URL:       "https://example.com/path",
 	}
 
-	if err := observer.Save(context.Background(), event); err != nil {
-		t.Fatalf("Save returned error: %v", err)
+	if saveErr := observer.Save(context.Background(), event); saveErr != nil {
+		t.Fatalf("Save returned error: %v", saveErr)
 	}
 
 	data, err := os.ReadFile(tmpFile.Name())
@@ -46,8 +46,8 @@ func TestFileObserver_Notify_AppendsJSONLine(t *testing.T) {
 	}
 
 	var decoded model.AuditEvent
-	if err := json.Unmarshal([]byte(lines[0]), &decoded); err != nil {
-		t.Fatalf("failed to unmarshal json line: %v", err)
+	if unmarshalErr := json.Unmarshal([]byte(lines[0]), &decoded); unmarshalErr != nil {
+		t.Fatalf("failed to unmarshal json line: %v", unmarshalErr)
 	}
 	if decoded != event {
 		t.Fatalf("decoded event mismatch: %#v", decoded)
@@ -67,8 +67,8 @@ func TestFileObserver_Close_SaveAfterCloseIgnored(t *testing.T) {
 		t.Fatalf("NewFileObserver failed: %v", err)
 	}
 
-	if err := closeFn(); err != nil {
-		t.Fatalf("Close failed: %v", err)
+	if closeErr := closeFn(); closeErr != nil {
+		t.Fatalf("Close failed: %v", closeErr)
 	}
 
 	// Save после Close не должен паниковать

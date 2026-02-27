@@ -25,7 +25,7 @@ func BenchmarkSave(b *testing.B) {
 	if err != nil {
 		b.Fatalf("NewStorage failed: %v", err)
 	}
-	defer storage.Close()
+	defer func() { _ = storage.Close() }()
 
 	ctx := context.Background()
 
@@ -48,7 +48,7 @@ func BenchmarkGetByShortKey(b *testing.B) {
 	if err != nil {
 		b.Fatalf("NewStorage failed: %v", err)
 	}
-	defer storage.Close()
+	defer func() { _ = storage.Close() }()
 
 	ctx := context.Background()
 	_ = storage.Save(ctx, &model.Link{
@@ -67,7 +67,7 @@ func BenchmarkGetByUserID(b *testing.B) {
 	if err != nil {
 		b.Fatalf("NewStorage failed: %v", err)
 	}
-	defer storage.Close()
+	defer func() { _ = storage.Close() }()
 
 	ctx := context.Background()
 	userID := "bench_getbyuser"
@@ -90,7 +90,7 @@ func BenchmarkBatchSave(b *testing.B) {
 	if err != nil {
 		b.Fatalf("NewStorage failed: %v", err)
 	}
-	defer storage.Close()
+	defer func() { _ = storage.Close() }()
 
 	ctx := context.Background()
 

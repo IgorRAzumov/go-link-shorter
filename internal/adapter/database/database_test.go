@@ -111,8 +111,8 @@ func TestStorage_CheckStorageConnection_WithClosedConnection(t *testing.T) {
 		t.Fatalf("NewStorage failed: %v", err)
 	}
 
-	if err := storage.Close(); err != nil {
-		t.Fatalf("Failed to close storage: %v", err)
+	if closeErr := storage.Close(); closeErr != nil {
+		t.Fatalf("Failed to close storage: %v", closeErr)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -191,8 +191,8 @@ func TestStorage_Close_AlreadyClosed(t *testing.T) {
 		t.Fatalf("NewStorage failed: %v", err)
 	}
 
-	if err := storage.Close(); err != nil {
-		t.Fatalf("First Close failed: %v", err)
+	if closeErr := storage.Close(); closeErr != nil {
+		t.Fatalf("First Close failed: %v", closeErr)
 	}
 
 	err = storage.Close()
@@ -218,8 +218,8 @@ func TestStorage_CheckStorageConnection_AfterClose(t *testing.T) {
 		t.Fatalf("CheckStorageConnection should succeed before close, got result=%v, err=%v", result, err)
 	}
 
-	if err := storage.Close(); err != nil {
-		t.Fatalf("Failed to close storage: %v", err)
+	if closeErr := storage.Close(); closeErr != nil {
+		t.Fatalf("Failed to close storage: %v", closeErr)
 	}
 
 	result, err = storage.CheckStorageConnection(ctx)
@@ -550,8 +550,8 @@ func TestStorage_GetByUserID_SingleUser(t *testing.T) {
 	}
 
 	for _, link := range testLinks {
-		if err := storage.Save(ctx, link); err != nil {
-			t.Fatalf("Failed to save link: %v", err)
+		if saveErr := storage.Save(ctx, link); saveErr != nil {
+			t.Fatalf("Failed to save link: %v", saveErr)
 		}
 	}
 
@@ -625,14 +625,14 @@ func TestStorage_GetByUserID_MultipleUsers(t *testing.T) {
 	}
 
 	for _, link := range user1Links {
-		if err := storage.Save(ctx, link); err != nil {
-			t.Fatalf("Failed to save user1 link: %v", err)
+		if saveErr := storage.Save(ctx, link); saveErr != nil {
+			t.Fatalf("Failed to save user1 link: %v", saveErr)
 		}
 	}
 
 	for _, link := range user2Links {
-		if err := storage.Save(ctx, link); err != nil {
-			t.Fatalf("Failed to save user2 link: %v", err)
+		if saveErr := storage.Save(ctx, link); saveErr != nil {
+			t.Fatalf("Failed to save user2 link: %v", saveErr)
 		}
 	}
 
