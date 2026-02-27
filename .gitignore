@@ -21,3 +21,6 @@ vendor/
 # IDEs directories
 .idea
 .vscode
+
+# pprof memory/CPU profiles (can be regenerated)
+profiles/

@@ -60,6 +60,7 @@ func Run(config *config.Config) {
 		WithAuthService(authService).
 		WithAuditor(auditorService).
 		WithServerAddress(config.ServerAddress).
+		WithEnablePprof(config.EnablePprof).
 		Start()
 
 	deleteService.Stop()

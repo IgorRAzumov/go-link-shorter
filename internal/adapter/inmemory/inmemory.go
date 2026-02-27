@@ -71,7 +71,7 @@ func (storage *LinkStorage) Save(ctx context.Context, domainLink *model.Link) er
 	defer storage.mu.Unlock()
 
 	link := adapter.FromDomainLink(domainLink)
-	link.UUID = uuid.New().String()
+	link.UUID = uuid.NewString()
 
 	storage.linksByID.Store(link.ShortKey, link)
 	storage.linksByURL.Store(link.FullURL, link)
@@ -149,7 +149,7 @@ func (storage *LinkStorage) BatchSave(ctx context.Context, links []*model.Link) 
 
 	for _, domainLink := range links {
 		link := adapter.FromDomainLink(domainLink)
-		link.UUID = uuid.New().String()
+		link.UUID = uuid.NewString()
 
 		storage.linksByID.Store(link.ShortKey, link)
 		storage.linksByURL.Store(link.FullURL, link)
@@ -202,7 +202,7 @@ func (storage *LinkStorage) saveToFile() error {
 	}
 
 	allLinks := storage.getAllLinks()
-	data, marshalError := json.MarshalIndent(allLinks, "", "  ")
+	data, marshalError := json.Marshal(allLinks)
 	if marshalError != nil {
 		return marshalError
 	}

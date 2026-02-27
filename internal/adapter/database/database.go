@@ -6,6 +6,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
@@ -191,6 +192,41 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) erro
 		return nil
 	}
 
+	err := storage.batchSaveBulk(ctx, links)
+	if err == nil {
+		return nil
+	}
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == pgerrcode.UniqueViolation {
+		return storage.batchSavePerRow(ctx, links)
+	}
+	return err
+}
+
+func (storage *Storage) batchSaveBulk(ctx context.Context, links []*model.Link) error {
+	tx, err := storage.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	valueStrings := make([]string, 0, len(links))
+	args := make([]interface{}, 0, len(links)*4)
+	for i, link := range links {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d,$%d,$%d,$%d)", i*4+1, i*4+2, i*4+3, i*4+4))
+		args = append(args, uuid.NewString(), link.ShortKey, link.FullURL, link.UserID)
+	}
+	query := "INSERT INTO links (uuid, short_key, full_url, user_id) VALUES " + strings.Join(valueStrings, ", ")
+	_, err = tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (storage *Storage) batchSavePerRow(ctx context.Context, links []*model.Link) error {
 	tx, err := storage.db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to begin transaction")
@@ -209,42 +245,29 @@ func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) erro
 		log.Error().Err(err).Msg("Failed to prepare batch insert statement")
 		return err
 	}
-	defer func(stmt *sql.Stmt) {
-		err := stmt.Close()
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to close statement")
-		}
-	}(stmt)
+	defer stmt.Close()
 
 	for _, link := range links {
-		linkUUID := uuid.New().String()
-
-		_, err := stmt.ExecContext(ctx, linkUUID, link.ShortKey, link.FullURL, link.UserID)
+		_, err := stmt.ExecContext(ctx, uuid.NewString(), link.ShortKey, link.FullURL, link.UserID)
 		if err != nil {
 			var pqErr *pq.Error
-			if errors.As(err, &pqErr) {
-				if pqErr.Code == pgerrcode.UniqueViolation {
-					existingShortKey := storage.GetShortKeyByURL(ctx, link.FullURL)
-					if existingShortKey != "" {
-						return &model.URLConflictError{ExistingShortKey: existingShortKey}
-					}
-					existingURL, _ := storage.GetByShortKey(ctx, link.ShortKey)
-					if existingURL == link.FullURL {
-						return &model.URLConflictError{ExistingShortKey: link.ShortKey}
-					}
-					return model.ErrURLConflict
+			if errors.As(err, &pqErr) && pqErr.Code == pgerrcode.UniqueViolation {
+				existingShortKey := storage.GetShortKeyByURL(ctx, link.FullURL)
+				if existingShortKey != "" {
+					return &model.URLConflictError{ExistingShortKey: existingShortKey}
 				}
+				existingURL, _ := storage.GetByShortKey(ctx, link.ShortKey)
+				if existingURL == link.FullURL {
+					return &model.URLConflictError{ExistingShortKey: link.ShortKey}
+				}
+				return model.ErrURLConflict
 			}
 			log.Error().Err(err).Str("short_key", link.ShortKey).Str("url", link.FullURL).Msg("Failed to save link in batch")
 			return err
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		log.Error().Err(err).Msg("Failed to commit transaction")
-		return err
-	}
-	return nil
+	return tx.Commit()
 }
 
 func (storage *Storage) GetByUserID(ctx context.Context, userID string) ([]*model.Link, error) {
@@ -266,7 +289,7 @@ func (storage *Storage) GetByUserID(ctx context.Context, userID string) ([]*mode
 		}
 	}(rows)
 
-	var links []*model.Link
+	links := make([]*model.Link, 0, 32)
 	for rows.Next() {
 		var link model.Link
 		if err := rows.Scan(&link.ShortKey, &link.FullURL); err != nil {

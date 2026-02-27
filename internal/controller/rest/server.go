@@ -20,6 +20,7 @@ type Builder struct {
 	authService        service.AuthService
 	auditor            service.AuditorService
 	serverAddress      string
+	enablePprof        bool
 }
 
 func NewServerBuilder() *Builder { return &Builder{} }
@@ -64,6 +65,11 @@ func (builder *Builder) WithServerAddress(addr string) *Builder {
 	return builder
 }
 
+func (builder *Builder) WithEnablePprof(enable bool) *Builder {
+	builder.enablePprof = enable
+	return builder
+}
+
 func (builder *Builder) Start() {
 	router := NewRouter(
 		builder.linkCreateUsecase,
@@ -72,6 +78,7 @@ func (builder *Builder) Start() {
 		builder.healthCheckUsecase,
 		builder.authService,
 		builder.auditor,
+		builder.enablePprof,
 	)
 
 	server := &http.Server{
