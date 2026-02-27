@@ -25,3 +25,7 @@ type LinkRepository interface {
 type HealthCheckRepository interface {
 	CheckStorageConnection(ctx context.Context) (bool, error)
 }
+
+type AuditRepository interface {
+	Save(ctx context.Context, event model.AuditEvent) error
+}

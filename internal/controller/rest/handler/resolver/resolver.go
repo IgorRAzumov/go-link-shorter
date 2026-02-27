@@ -3,17 +3,21 @@ package resolver
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/authctx"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 	"github.com/go-chi/chi/v5"
 )
 
-func Handler(usecase usecase.LinkReadUsecase) http.HandlerFunc {
+func Handler(usecase usecase.LinkReadUsecase, auditor service.AuditorService) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		shortKey := chi.URLParam(request, "shortKey")
 		context := request.Context()
+
 		fullLink, err := usecase.GetFullURLByShorKey(context, shortKey)
 		if errors.Is(err, model.ErrURLDeleted) {
 			writer.WriteHeader(http.StatusGone)
@@ -26,5 +30,18 @@ func Handler(usecase usecase.LinkReadUsecase) http.HandlerFunc {
 
 		writer.Header().Set("Location", fullLink)
 		writer.WriteHeader(http.StatusTemporaryRedirect)
+
+		if auditor != nil {
+			sendAuditEvent(auditor, request, fullLink)
+		}
 	}
+}
+
+func sendAuditEvent(auditor service.AuditorService, request *http.Request, fullLink string) {
+	auditor.AuditNewEvent(request.Context(), model.AuditEvent{
+		Timestamp: time.Now().Unix(),
+		Action:    "follow",
+		UserID:    authctx.UserID(request.Context()),
+		URL:       common.NormalizeURL(fullLink),
+	})
 }

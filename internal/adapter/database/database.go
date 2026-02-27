@@ -21,13 +21,13 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-type LinkStorage struct {
+type Storage struct {
 	db *sql.DB
 }
 
-func NewStorage(dsn string) (*LinkStorage, error) {
+func NewStorage(dsn string) (*Storage, error) {
 	if dsn == "" {
-		return &LinkStorage{}, nil
+		return &Storage{}, nil
 	}
 
 	db, err := sql.Open("postgres", dsn)
@@ -44,7 +44,7 @@ func NewStorage(dsn string) (*LinkStorage, error) {
 		return nil, err
 	}
 
-	storage := &LinkStorage{db: db}
+	storage := &Storage{db: db}
 
 	if err := storage.runMigrations(); err != nil {
 		closeErr := db.Close()
@@ -58,7 +58,7 @@ func NewStorage(dsn string) (*LinkStorage, error) {
 	return storage, nil
 }
 
-func (storage *LinkStorage) runMigrations() error {
+func (storage *Storage) runMigrations() error {
 	driver, err := postgres.WithInstance(storage.db, &postgres.Config{})
 	if err != nil {
 		return err
@@ -82,7 +82,7 @@ func (storage *LinkStorage) runMigrations() error {
 	return nil
 }
 
-func (storage *LinkStorage) CheckStorageConnection(ctx context.Context) (bool, error) {
+func (storage *Storage) CheckStorageConnection(ctx context.Context) (bool, error) {
 	if storage.db == nil {
 		return false, nil
 	}
@@ -95,14 +95,14 @@ func (storage *LinkStorage) CheckStorageConnection(ctx context.Context) (bool, e
 	return true, nil
 }
 
-func (storage *LinkStorage) Close() error {
+func (storage *Storage) Close() error {
 	if storage.db == nil {
 		return nil
 	}
 	return storage.db.Close()
 }
 
-func (storage *LinkStorage) GetByShortKey(ctx context.Context, shortURL string) (fullURL string, isDeleted bool) {
+func (storage *Storage) GetByShortKey(ctx context.Context, shortURL string) (fullURL string, isDeleted bool) {
 	if storage.db == nil {
 		return "", false
 	}
@@ -118,7 +118,7 @@ func (storage *LinkStorage) GetByShortKey(ctx context.Context, shortURL string) 
 	return fullURL, isDeleted
 }
 
-func (storage *LinkStorage) GetShortKeyByURL(ctx context.Context, URL string) string {
+func (storage *Storage) GetShortKeyByURL(ctx context.Context, URL string) string {
 	if storage.db == nil {
 		return ""
 	}
@@ -136,7 +136,7 @@ func (storage *LinkStorage) GetShortKeyByURL(ctx context.Context, URL string) st
 	return shortKey
 }
 
-func (storage *LinkStorage) IsExistShortKey(ctx context.Context, shortURL string) bool {
+func (storage *Storage) IsExistShortKey(ctx context.Context, shortURL string) bool {
 	if storage.db == nil {
 		return false
 	}
@@ -151,7 +151,7 @@ func (storage *LinkStorage) IsExistShortKey(ctx context.Context, shortURL string
 	return exists
 }
 
-func (storage *LinkStorage) Save(ctx context.Context, link *model.Link) error {
+func (storage *Storage) Save(ctx context.Context, link *model.Link) error {
 	if storage.db == nil {
 		return nil
 	}
@@ -182,7 +182,7 @@ func (storage *LinkStorage) Save(ctx context.Context, link *model.Link) error {
 	return nil
 }
 
-func (storage *LinkStorage) BatchSave(ctx context.Context, links []*model.Link) error {
+func (storage *Storage) BatchSave(ctx context.Context, links []*model.Link) error {
 	if storage.db == nil {
 		return nil
 	}
@@ -247,7 +247,7 @@ func (storage *LinkStorage) BatchSave(ctx context.Context, links []*model.Link) 
 	return nil
 }
 
-func (storage *LinkStorage) GetByUserID(ctx context.Context, userID string) ([]*model.Link, error) {
+func (storage *Storage) GetByUserID(ctx context.Context, userID string) ([]*model.Link, error) {
 	if storage.db == nil {
 		return []*model.Link{}, nil
 	}
@@ -285,7 +285,7 @@ func (storage *LinkStorage) GetByUserID(ctx context.Context, userID string) ([]*
 	return links, nil
 }
 
-func (storage *LinkStorage) MarkDeleted(ctx context.Context, userID string, shortKeys []string) error {
+func (storage *Storage) MarkDeleted(ctx context.Context, userID string, shortKeys []string) error {
 	if storage.db == nil {
 		return nil
 	}

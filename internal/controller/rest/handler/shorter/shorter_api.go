@@ -5,14 +5,17 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter/model"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/authctx"
 	domainmodel "github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
 
-func APIHandler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
+func APIHandler(usecase usecase.LinkCreateUsecase, auditor service.AuditorService) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if request.Header.Get(common.ContentType) != common.ApplicationJSON {
 			common.MethodNotAllowedError(writer)
@@ -28,6 +31,9 @@ func APIHandler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
 		defer func(Body io.ReadCloser) {
 			_ = Body.Close()
 		}(request.Body)
+
+		auditURL := auditURLFromRaw(shortenRequest.URL)
+		userID := authctx.UserID(request.Context())
 
 		shortKey, err := GenerateShortKey(shortenRequest.URL, request.Context(), writer, usecase)
 		if err != nil {
@@ -47,6 +53,13 @@ func APIHandler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
 				_, writeError := writer.Write(bytes)
 				if writeError != nil {
 					common.InternalError(writer, writeError)
+				} else if auditor != nil {
+					auditor.AuditNewEvent(request.Context(), domainmodel.AuditEvent{
+						Timestamp: time.Now().Unix(),
+						Action:    "shorten",
+						UserID:    userID,
+						URL:       auditURL,
+					})
 				}
 				return
 			}
@@ -67,6 +80,15 @@ func APIHandler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
 		_, writeError := writer.Write(bytes)
 		if writeError != nil {
 			common.InternalError(writer, writeError)
+			return
+		}
+		if auditor != nil {
+			auditor.AuditNewEvent(request.Context(), domainmodel.AuditEvent{
+				Timestamp: time.Now().Unix(),
+				Action:    "shorten",
+				UserID:    userID,
+				URL:       auditURL,
+			})
 		}
 	}
 }
