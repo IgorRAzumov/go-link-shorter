@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     container: golang:1.24
     env:
-      GOTOOLCHAIN: auto
+      GOTOOLCHAIN: local
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
