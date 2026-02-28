@@ -10,7 +10,6 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
-	github.com/kisielk/errcheck v1.9.0
 	github.com/lib/pq v1.10.9
 	github.com/mailru/easyjson v0.9.1
 	github.com/rs/zerolog v1.34.0
