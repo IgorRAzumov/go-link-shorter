@@ -15,11 +15,11 @@ import (
 )
 
 func (builder *Builder) listenAndServeTLS(server *http.Server) error {
-	cert, err := tls.LoadX509KeyPair(builder.tlsCertFile, builder.tlsKeyFile)
+	_, err := tls.LoadX509KeyPair(builder.tlsCertFile, builder.tlsKeyFile)
 	if err != nil {
 		log.Info().Err(err).Msg("TLS cert/key files not found, generating self-signed certificate")
 
-		cert, err = generateSelfSignedCert()
+		cert, err := generateSelfSignedCert()
 		if err != nil {
 			return err
 		}

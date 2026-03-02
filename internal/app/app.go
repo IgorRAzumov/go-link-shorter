@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -24,12 +25,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Run(config *config.Config) {
-	linkRepository := initStorage(config.DatabaseAddress, config.FileStoragePath)
+func Run(config *config.Config) error {
+	linkRepository, err := initStorage(config.DatabaseAddress, config.FileStoragePath)
+	if err != nil {
+		return err
+	}
 
 	resolverService := resolver.NewResolverService(linkRepository)
 	authService := authservice.NewAuthService(config.SecretKey)
-	auditorService, closeAudit := initAuditorService(config.AuditFile, config.AuditURL)
+	auditorService, closeAudit, err := initAuditorService(config.AuditFile, config.AuditURL)
+	if err != nil {
+		return err
+	}
 	if auditorService != nil && closeAudit != nil {
 		defer func() {
 			if err := closeAudit(); err != nil {
@@ -58,7 +65,7 @@ func Run(config *config.Config) {
 	serverCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	rest.NewServerBuilder().
+	if serverError := rest.NewServerBuilder().
 		WithContext(serverCtx).
 		WithLinkCreateUsecase(linkCreateUsecase).
 		WithLinkReadUsecase(linkReadUsecase).
@@ -69,15 +76,18 @@ func Run(config *config.Config) {
 		WithServerAddress(config.ServerAddress).
 		WithEnablePprof(config.EnablePprof).
 		WithEnableHTTPS(config.EnableHTTPS, config.TLSCertFile, config.TLSKeyFile).
-		Start()
+		Start(); serverError != nil {
+		return serverError
+	}
 
 	deleteService.Stop()
 	deleteService.Wait()
+	return nil
 }
 
-func initAuditorService(auditFile, auditURL string) (service.AuditorService, func() error) {
+func initAuditorService(auditFile, auditURL string) (service.AuditorService, func() error, error) {
 	if auditFile == "" && auditURL == "" {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	var closeAudit func() error = nil
@@ -86,7 +96,7 @@ func initAuditorService(auditFile, auditURL string) (service.AuditorService, fun
 	if auditFile != "" {
 		observer, closer, err := auditadapter.NewFileObserver(auditFile)
 		if err != nil {
-			log.Fatal().Err(err).Str("audit_file", auditFile).Msg("Failed to open audit file")
+			return nil, nil, fmt.Errorf("failed to open audit file %q: %w", auditFile, err)
 		}
 		publisher.Register(observer)
 		closeAudit = closer
@@ -94,32 +104,32 @@ func initAuditorService(auditFile, auditURL string) (service.AuditorService, fun
 	if auditURL != "" {
 		publisher.Register(auditadapter.NewHTTPAuditObserver(auditURL))
 	}
-	return publisher, closeAudit
+	return publisher, closeAudit, nil
 }
 
-func initStorage(databaseDSN, fileStoragePath string) repository.LinkRepository {
+func initStorage(databaseDSN, fileStoragePath string) (repository.LinkRepository, error) {
 	if databaseDSN != "" {
 		dbStorage, err := database.NewStorage(databaseDSN)
 		if err != nil {
-			log.Fatal().Err(err).Str("dsn", databaseDSN).Msg("Failed to initialize database storage")
+			return nil, fmt.Errorf("failed to initialize database storage (dsn=%q): %w", databaseDSN, err)
 		}
 		log.Info().Msg("Using PostgreSQL database storage")
-		return dbStorage
+		return dbStorage, nil
 	}
 
 	if fileStoragePath != "" {
 		fileStorage, err := inmemory.NewInMemoryFileStorage(fileStoragePath)
 		if err != nil {
-			log.Fatal().Err(err).Str("file_path", fileStoragePath).Msg("Failed to initialize file storage")
+			return nil, fmt.Errorf("failed to initialize file storage (path=%q): %w", fileStoragePath, err)
 		}
 		log.Info().Str("file_path", fileStoragePath).Msg("Using file storage")
-		return fileStorage
+		return fileStorage, nil
 	}
 
 	memoryStorage, err := inmemory.NewInMemoryFileStorage("")
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize in-memory storage")
+		return nil, fmt.Errorf("failed to initialize in-memory storage: %w", err)
 	}
 	log.Info().Msg("Using in-memory storage")
-	return memoryStorage
+	return memoryStorage, nil
 }

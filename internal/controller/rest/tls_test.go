@@ -96,9 +96,10 @@ func TestListenAndServeTLS_WithSelfSignedCert_AcceptsConnections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("HTTPS GET error: %v", err)
 	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -177,9 +178,10 @@ func TestListenAndServeTLS_WithCertFiles_UsesListenAndServeTLS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("HTTPS GET: %v", err)
 	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)

@@ -11,16 +11,12 @@ import (
 
 var Analyzer = &analysis.Analyzer{
 	Name:     "osexit",
-	Doc:      "forbid direct os.Exit calls in main function of main package",
+	Doc:      "forbid os.Exit, panic and log.Fatal outside main function",
 	Run:      run,
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
-	if pass.Pkg.Name() != "main" {
-		return nil, nil
-	}
-
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	var inMainStack []bool
 	nodeFilter := []ast.Node{
@@ -29,36 +25,65 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		(*ast.CallExpr)(nil),
 	}
 
-	insp.Nodes(nodeFilter, func(n ast.Node, push bool) bool {
+	insp.Nodes(nodeFilter, func(node ast.Node, push bool) bool {
 		if push {
-			switch node := n.(type) {
+			switch node := node.(type) {
 			case *ast.FuncDecl:
-				inMainStack = append(inMainStack, node.Name.Name == "main")
+				inMainStack = append(inMainStack, pass.Pkg.Name() == "main" && node.Name.Name == "main")
 			case *ast.FuncLit:
-				inMainStack = append(inMainStack, false)
+				inheritsMain := len(inMainStack) > 0 && inMainStack[len(inMainStack)-1]
+				inMainStack = append(inMainStack, inheritsMain)
 			case *ast.CallExpr:
-				if len(inMainStack) > 0 && inMainStack[len(inMainStack)-1] {
-					filename := pass.Fset.Position(node.Pos()).Filename
-					if strings.Contains(filename, "go-build") || strings.Contains(filename, "Library/Caches") {
+				insideMain := containsTrue(inMainStack)
+				if insideMain {
+					return true
+				}
+
+				filename := pass.Fset.Position(node.Pos()).Filename
+				if strings.Contains(filename, "go-build") || strings.Contains(filename, "Library/Caches") {
+					return true
+				}
+
+				if sel, ok := node.Fun.(*ast.SelectorExpr); ok {
+					if ident, ok := sel.X.(*ast.Ident); ok && ident.Name == "os" && sel.Sel.Name == "Exit" {
+						pass.Reportf(node.Pos(), "os.Exit must not be used outside main")
 						return true
 					}
-					if sel, ok := node.Fun.(*ast.SelectorExpr); ok {
-						if ident, ok := sel.X.(*ast.Ident); ok && ident.Name == "os" && sel.Sel.Name == "Exit" {
-							pass.Reportf(node.Pos(), "direct os.Exit call in main is forbidden, use return or log.Fatal instead")
+				}
+
+				if ident, ok := node.Fun.(*ast.Ident); ok && ident.Name == "panic" {
+					pass.Reportf(node.Pos(), "panic must not be used outside main")
+					return true
+				}
+
+				if sel, ok := node.Fun.(*ast.SelectorExpr); ok {
+					if ident, ok := sel.X.(*ast.Ident); ok && ident.Name == "log" {
+						switch sel.Sel.Name {
+						case "Fatal", "Fatalf", "Fatalln":
+							pass.Reportf(node.Pos(), "log.%s must not be used outside main", sel.Sel.Name)
 						}
 					}
 				}
 			}
 			return true
 		}
-		if _, ok := n.(*ast.FuncDecl); ok {
+		if _, ok := node.(*ast.FuncDecl); ok {
 			inMainStack = inMainStack[:len(inMainStack)-1]
 		}
-		if _, ok := n.(*ast.FuncLit); ok {
+		if _, ok := node.(*ast.FuncLit); ok {
 			inMainStack = inMainStack[:len(inMainStack)-1]
 		}
 		return true
 	})
 
 	return nil, nil
+}
+
+func containsTrue(s []bool) bool {
+	for _, x := range s {
+		if x {
+			return true
+		}
+	}
+	return false
 }

@@ -23,7 +23,9 @@ func main() {
 		log.Fatal().Err(err).Msg("Error loading config")
 	}
 
-	app.Run(cfg)
+	if err := app.Run(cfg); err != nil {
+		log.Fatal().Err(err).Msg("Application error")
+	}
 }
 
 func printBuildInfo() {
