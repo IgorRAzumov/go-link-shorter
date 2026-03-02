@@ -134,6 +134,9 @@ func setupTestEnv(t *testing.T, serverAddress, baseURL string) {
 	t.Setenv("AUDIT_FILE", "")
 	t.Setenv("AUDIT_URL", "")
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
+	oldArgs := os.Args
+	os.Args = []string{"test"}
+	t.Cleanup(func() { os.Args = oldArgs })
 }
 
 func setupTestEnvWithFlags(t *testing.T, serverAddress, baseURL string, flagArgs []string) {
@@ -158,5 +161,80 @@ func assertConfig(t *testing.T, cfg *Config, expectedServerAddress, expectedBase
 	}
 	if cfg.BaseShortURL != expectedBaseURL {
 		t.Errorf("Expected BaseShortURL '%s', got '%s'", expectedBaseURL, cfg.BaseShortURL)
+	}
+}
+
+func TestLoad_EnableHTTPS_FromEnv(t *testing.T) {
+	setupTestEnv(t, "", "")
+	t.Setenv("ENABLE_HTTPS", "true")
+
+	cfg := loadConfigOrFail(t)
+
+	if !cfg.EnableHTTPS {
+		t.Error("Expected EnableHTTPS true from ENABLE_HTTPS env, got false")
+	}
+	if cfg.TLSCertFile != "cert.pem" {
+		t.Errorf("Expected default TLSCertFile cert.pem when HTTPS enabled, got %q", cfg.TLSCertFile)
+	}
+	if cfg.TLSKeyFile != "key.pem" {
+		t.Errorf("Expected default TLSKeyFile key.pem when HTTPS enabled, got %q", cfg.TLSKeyFile)
+	}
+}
+
+func TestLoad_EnableHTTPS_FromFlag(t *testing.T) {
+	setupTestEnvWithFlags(t, "", "", []string{"test", "-s"})
+
+	cfg := loadConfigOrFail(t)
+
+	if !cfg.EnableHTTPS {
+		t.Error("Expected EnableHTTPS true from -s flag, got false")
+	}
+	if cfg.TLSCertFile != "cert.pem" {
+		t.Errorf("Expected default TLSCertFile cert.pem when HTTPS enabled, got %q", cfg.TLSCertFile)
+	}
+	if cfg.TLSKeyFile != "key.pem" {
+		t.Errorf("Expected default TLSKeyFile key.pem when HTTPS enabled, got %q", cfg.TLSKeyFile)
+	}
+}
+
+func TestLoad_EnableHTTPS_DefaultsToFalse(t *testing.T) {
+	setupTestEnv(t, "", "")
+
+	cfg := loadConfigOrFail(t)
+
+	if cfg.EnableHTTPS {
+		t.Error("Expected EnableHTTPS false by default, got true")
+	}
+}
+
+func TestLoad_TLSCertKey_FromFlags(t *testing.T) {
+	setupTestEnvWithFlags(t, "", "", []string{"test", "-s", "-tls-cert", "/path/to/cert.pem", "-tls-key", "/path/to/key.pem"})
+
+	cfg := loadConfigOrFail(t)
+
+	if !cfg.EnableHTTPS {
+		t.Error("Expected EnableHTTPS true, got false")
+	}
+	if cfg.TLSCertFile != "/path/to/cert.pem" {
+		t.Errorf("Expected TLSCertFile /path/to/cert.pem, got %q", cfg.TLSCertFile)
+	}
+	if cfg.TLSKeyFile != "/path/to/key.pem" {
+		t.Errorf("Expected TLSKeyFile /path/to/key.pem, got %q", cfg.TLSKeyFile)
+	}
+}
+
+func TestLoad_TLSCertKey_FromEnv(t *testing.T) {
+	setupTestEnv(t, "", "")
+	t.Setenv("ENABLE_HTTPS", "true")
+	t.Setenv("TLS_CERT_FILE", "/env/cert.pem")
+	t.Setenv("TLS_KEY_FILE", "/env/key.pem")
+
+	cfg := loadConfigOrFail(t)
+
+	if cfg.TLSCertFile != "/env/cert.pem" {
+		t.Errorf("Expected TLSCertFile from env /env/cert.pem, got %q", cfg.TLSCertFile)
+	}
+	if cfg.TLSKeyFile != "/env/key.pem" {
+		t.Errorf("Expected TLSKeyFile from env /env/key.pem, got %q", cfg.TLSKeyFile)
 	}
 }

@@ -68,6 +68,7 @@ func Run(config *config.Config) {
 		WithAuditor(auditorService).
 		WithServerAddress(config.ServerAddress).
 		WithEnablePprof(config.EnablePprof).
+		WithEnableHTTPS(config.EnableHTTPS, config.TLSCertFile, config.TLSKeyFile).
 		Start()
 
 	deleteService.Stop()

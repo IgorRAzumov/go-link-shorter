@@ -19,6 +19,9 @@ type Config struct {
 	AuditFile       string `env:"AUDIT_FILE"`
 	AuditURL        string `env:"AUDIT_URL"`
 	EnablePprof     bool   `env:"ENABLE_PPROF" env-default:"false"`
+	EnableHTTPS     bool   `env:"ENABLE_HTTPS" env-default:"false"`
+	TLSCertFile     string `env:"TLS_CERT_FILE"`
+	TLSKeyFile      string `env:"TLS_KEY_FILE"`
 }
 
 // Load загружает конфигурацию из переменных окружения и флагов.
@@ -70,6 +73,9 @@ func extractStartConfig(cfg *Config) {
 	var auditFileFlag string
 	var auditURLFlag string
 	var enablePprofFlag bool
+	var enableHTTPSFlag bool
+	var tlsCertFileFlag string
+	var tlsKeyFileFlag string
 
 	flag.StringVar(&serverAddressFlag, "a", "localhost:8080", "server address")
 	flag.StringVar(&baseShortURLFlag, "b", "", "base shorter URL")
@@ -79,6 +85,9 @@ func extractStartConfig(cfg *Config) {
 	flag.StringVar(&auditFileFlag, "audit-file", "", "audit file path (append json line events)")
 	flag.StringVar(&auditURLFlag, "audit-url", "", "audit receiver URL (POST json event)")
 	flag.BoolVar(&enablePprofFlag, "pprof", false, "enable pprof debug endpoints at /debug/pprof/")
+	flag.BoolVar(&enableHTTPSFlag, "s", false, "enable HTTPS (TLS) server")
+	flag.StringVar(&tlsCertFileFlag, "tls-cert", "", "path to TLS certificate file (default: cert.pem when HTTPS enabled)")
+	flag.StringVar(&tlsKeyFileFlag, "tls-key", "", "path to TLS private key file (default: key.pem when HTTPS enabled)")
 	flag.Parse()
 
 	if envServerAddress == "" || envServerAddress == "localhost:8080" {
@@ -107,4 +116,17 @@ func extractStartConfig(cfg *Config) {
 		cfg.AuditURL = auditURLFlag
 	}
 	cfg.EnablePprof = cfg.EnablePprof || enablePprofFlag
+	cfg.EnableHTTPS = cfg.EnableHTTPS || enableHTTPSFlag
+	if tlsCertFileFlag != "" {
+		cfg.TLSCertFile = tlsCertFileFlag
+	}
+	if tlsKeyFileFlag != "" {
+		cfg.TLSKeyFile = tlsKeyFileFlag
+	}
+	if cfg.EnableHTTPS && cfg.TLSCertFile == "" {
+		cfg.TLSCertFile = "cert.pem"
+	}
+	if cfg.EnableHTTPS && cfg.TLSKeyFile == "" {
+		cfg.TLSKeyFile = "key.pem"
+	}
 }
