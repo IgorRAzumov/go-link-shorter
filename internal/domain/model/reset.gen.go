@@ -2,7 +2,7 @@
 
 package model
 
-func (x *ResetableStruct) Reset() {
+func (x *ResettableStruct) Reset() {
 	if x == nil {
 		return
 	}

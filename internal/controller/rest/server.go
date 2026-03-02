@@ -81,8 +81,8 @@ func (builder *Builder) WithEnablePprof(enable bool) *Builder {
 	return builder
 }
 
-// Start запускает HTTP-сервер.
-func (builder *Builder) Start() {
+// Start запускает HTTP-сервер. Блокируется до остановки сервера.
+func (builder *Builder) Start() error {
 	router := NewRouter(
 		builder.linkCreateUsecase,
 		builder.linkReadUsecase,
@@ -108,6 +108,7 @@ func (builder *Builder) Start() {
 	}()
 
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatal().Err(err).Msg("Http server start error")
+		return err
 	}
+	return nil
 }
