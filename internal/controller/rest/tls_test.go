@@ -81,9 +81,6 @@ func TestListenAndServeTLS_WithSelfSignedCert_AcceptsConnections(t *testing.T) {
 		done <- builder.listenAndServeTLS(server)
 	}()
 
-	// Wait for server to start
-	time.Sleep(100 * time.Millisecond)
-
 	// Connect with InsecureSkipVerify since we use self-signed cert
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -92,9 +89,19 @@ func TestListenAndServeTLS_WithSelfSignedCert_AcceptsConnections(t *testing.T) {
 		Timeout: 2 * time.Second,
 	}
 
-	resp, err := client.Get("https://" + addr + "/")
-	if err != nil {
-		t.Fatalf("HTTPS GET error: %v", err)
+	var resp *http.Response
+	var getErr error
+	for i := 0; i < 100; i++ {
+		resp, getErr = client.Get("https://" + addr + "/")
+		if getErr == nil {
+			break
+		}
+		if i < 99 {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	if getErr != nil {
+		t.Fatalf("HTTPS GET error: %v", getErr)
 	}
 	defer func() {
 		_, _ = io.Copy(io.Discard, resp.Body)
@@ -168,13 +175,20 @@ func TestListenAndServeTLS_WithCertFiles_UsesListenAndServeTLS(t *testing.T) {
 		done <- builder.listenAndServeTLS(server)
 	}()
 
-	time.Sleep(100 * time.Millisecond)
-
 	client := &http.Client{
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 		Timeout:   2 * time.Second,
 	}
-	resp, err := client.Get("https://" + addr + "/")
+	var resp *http.Response
+	for i := 0; i < 100; i++ {
+		resp, err = client.Get("https://" + addr + "/")
+		if err == nil {
+			break
+		}
+		if i < 99 {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
 	if err != nil {
 		t.Fatalf("HTTPS GET: %v", err)
 	}
