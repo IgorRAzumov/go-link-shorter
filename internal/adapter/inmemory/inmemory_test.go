@@ -79,8 +79,8 @@ func TestNewFileStorage_WithExistingFile(t *testing.T) {
 		t.Fatalf("Failed to marshal test data: %v", err)
 	}
 
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
+	if writeErr := os.WriteFile(filePath, data, 0644); writeErr != nil {
+		t.Fatalf("Failed to write test file: %v", writeErr)
 	}
 
 	storage, err := NewInMemoryFileStorage(filePath)
@@ -122,7 +122,7 @@ func TestLinkStorage_Save(t *testing.T) {
 		ShortKey: testLink.ShortKey,
 		FullURL:  testLink.FullURL,
 	}
-	storage.Save(ctx, domainLink)
+	_ = storage.Save(ctx, domainLink)
 
 	if !storage.IsExistShortKey(ctx, testLink.ShortKey) {
 		t.Error("Link was not saved - IsExistShortKey returned false")
@@ -154,13 +154,13 @@ func TestLinkStorage_Save_WithFileStorage(t *testing.T) {
 		ShortKey: testLink.ShortKey,
 		FullURL:  testLink.FullURL,
 	}
-	storage.Save(ctx, domainLink)
+	_ = storage.Save(ctx, domainLink)
 
 	if !storage.IsExistShortKey(ctx, testLink.ShortKey) {
 		t.Error("Link was not saved in memory")
 	}
 
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+	if _, statErr := os.Stat(filePath); os.IsNotExist(statErr) {
 		t.Error("Storage file was not created after Save")
 	}
 
@@ -203,7 +203,7 @@ func TestLinkStorage_Save_GeneratesUUID(t *testing.T) {
 		FullURL:  "https://uuid-test.com",
 	}
 
-	storage.Save(ctx, domainLink)
+	_ = storage.Save(ctx, domainLink)
 
 	fileData, err := os.ReadFile(filePath)
 	if err != nil {
@@ -267,7 +267,7 @@ func TestLinkStorage_GetByShortKey(t *testing.T) {
 					ShortKey: testCase.link.ShortKey,
 					FullURL:  testCase.link.FullURL,
 				}
-				storage.Save(ctx, domainLink)
+				_ = storage.Save(ctx, domainLink)
 			}
 
 			result, _ := storage.GetByShortKey(ctx, testCase.shortKey)
@@ -296,7 +296,7 @@ func TestLinkStorage_IsExistShortKey(t *testing.T) {
 		ShortKey: testLink.ShortKey,
 		FullURL:  testLink.FullURL,
 	}
-	storage.Save(ctx, domainLink)
+	_ = storage.Save(ctx, domainLink)
 
 	testCases := []struct {
 		description string
@@ -381,7 +381,7 @@ func TestLinkStorage_GetShortKeyByURL(t *testing.T) {
 					ShortKey: testCase.link.ShortKey,
 					FullURL:  normalizedFullURL,
 				}
-				testStorage.Save(ctx, domainLink)
+				_ = testStorage.Save(ctx, domainLink)
 			}
 
 			normalizedSearchURL := common.NormalizeURL(testCase.url)
@@ -427,7 +427,7 @@ func TestLinkStorage_GetAllLinks(t *testing.T) {
 			ShortKey: link.ShortKey,
 			FullURL:  link.FullURL,
 		}
-		storage.Save(ctx, domainLink)
+		_ = storage.Save(ctx, domainLink)
 	}
 
 	allLinks = storage.getAllLinks()
@@ -474,7 +474,7 @@ func TestLinkStorage_MultipleSaves(t *testing.T) {
 		ShortKey: firstLink.ShortKey,
 		FullURL:  firstLink.FullURL,
 	}
-	storage.Save(ctx, firstDomainLink)
+	_ = storage.Save(ctx, firstDomainLink)
 
 	secondLink := &adapter.Link{
 		ShortKey: "same-key",
@@ -484,7 +484,7 @@ func TestLinkStorage_MultipleSaves(t *testing.T) {
 		ShortKey: secondLink.ShortKey,
 		FullURL:  secondLink.FullURL,
 	}
-	storage.Save(ctx, secondDomainLink)
+	_ = storage.Save(ctx, secondDomainLink)
 
 	retrievedURL, _ := storage.GetByShortKey(ctx, "same-key")
 	if retrievedURL != secondLink.FullURL {
@@ -513,7 +513,7 @@ func TestLinkStorage_ConcurrentAccess(t *testing.T) {
 				ShortKey: link.ShortKey,
 				FullURL:  link.FullURL,
 			}
-			storage.Save(ctx, domainLink)
+			_ = storage.Save(ctx, domainLink)
 			_, _ = storage.GetByShortKey(ctx, "key-concurrent")
 			storage.IsExistShortKey(ctx, "key-concurrent")
 			done <- true
@@ -558,7 +558,7 @@ func TestLinkStorage_Persistence(t *testing.T) {
 			ShortKey: link.ShortKey,
 			FullURL:  link.FullURL,
 		}
-		firstStorage.Save(ctx, domainLink)
+		_ = firstStorage.Save(ctx, domainLink)
 	}
 
 	secondStorage, err := NewInMemoryFileStorage(filePath)
@@ -613,7 +613,7 @@ func TestLinkStorage_EmptyFile(t *testing.T) {
 		ShortKey: testLink.ShortKey,
 		FullURL:  testLink.FullURL,
 	}
-	storage.Save(ctx, domainLink)
+	_ = storage.Save(ctx, domainLink)
 
 	if !storage.IsExistShortKey(ctx, "empty-key") {
 		t.Error("Failed to save link after loading from empty file")
@@ -651,7 +651,7 @@ func TestLinkStorage_BatchSave_EmptySlice(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	storage.BatchSave(ctx, []*model.Link{})
+	_ = storage.BatchSave(ctx, []*model.Link{})
 
 	allLinks := storage.getAllLinks()
 	if len(allLinks) != 0 {
@@ -673,7 +673,7 @@ func TestLinkStorage_BatchSave_SingleLink(t *testing.T) {
 		FullURL:  "https://batch1.com",
 	}
 
-	storage.BatchSave(ctx, []*model.Link{testLink})
+	_ = storage.BatchSave(ctx, []*model.Link{testLink})
 
 	if !storage.IsExistShortKey(ctx, "batch-key-1") {
 		t.Error("Link was not saved in batch")
@@ -709,7 +709,7 @@ func TestLinkStorage_BatchSave_MultipleLinks(t *testing.T) {
 		},
 	}
 
-	storage.BatchSave(ctx, testLinks)
+	_ = storage.BatchSave(ctx, testLinks)
 
 	allLinks := storage.getAllLinks()
 	if len(allLinks) != len(testLinks) {
@@ -748,7 +748,7 @@ func TestLinkStorage_BatchSave_PersistsToFile(t *testing.T) {
 		},
 	}
 
-	firstStorage.BatchSave(ctx, testLinks)
+	_ = firstStorage.BatchSave(ctx, testLinks)
 
 	secondStorage, err := NewInMemoryFileStorage(filePath)
 	if err != nil {
@@ -814,8 +814,8 @@ func TestLinkStorage_GetByUserID_SingleUser(t *testing.T) {
 	}
 
 	for _, link := range testLinks {
-		if err := storage.Save(ctx, link); err != nil {
-			t.Fatalf("Failed to save link: %v", err)
+		if saveErr := storage.Save(ctx, link); saveErr != nil {
+			t.Fatalf("Failed to save link: %v", saveErr)
 		}
 	}
 
@@ -881,14 +881,14 @@ func TestLinkStorage_GetByUserID_MultipleUsers(t *testing.T) {
 	}
 
 	for _, link := range user1Links {
-		if err := storage.Save(ctx, link); err != nil {
-			t.Fatalf("Failed to save user1 link: %v", err)
+		if saveErr := storage.Save(ctx, link); saveErr != nil {
+			t.Fatalf("Failed to save user1 link: %v", saveErr)
 		}
 	}
 
 	for _, link := range user2Links {
-		if err := storage.Save(ctx, link); err != nil {
-			t.Fatalf("Failed to save user2 link: %v", err)
+		if saveErr := storage.Save(ctx, link); saveErr != nil {
+			t.Fatalf("Failed to save user2 link: %v", saveErr)
 		}
 	}
 
@@ -938,8 +938,8 @@ func TestLinkStorage_GetByUserID_WithEmptyUserID(t *testing.T) {
 		FullURL:  "https://empty-user.com",
 		UserID:   "",
 	}
-	if err := storage.Save(ctx, link); err != nil {
-		t.Fatalf("Failed to save link: %v", err)
+	if saveErr := storage.Save(ctx, link); saveErr != nil {
+		t.Fatalf("Failed to save link: %v", saveErr)
 	}
 
 	links, err := storage.GetByUserID(ctx, "")

@@ -128,7 +128,7 @@ func BenchmarkCreateShortKey_DB(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer storage.Close()
+	defer func() { _ = storage.Close() }()
 
 	service := NewShorterService(storage)
 	ctx := context.Background()
@@ -147,7 +147,7 @@ func BenchmarkProcessBatchShortenRequests_DB(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer storage.Close()
+	defer func() { _ = storage.Close() }()
 
 	service := NewShorterService(storage)
 	resolverSvc := resolver.NewResolverService(storage)

@@ -236,8 +236,8 @@ func (storage *Storage) batchSavePerRow(ctx context.Context, links []*model.Link
 	}
 
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
-			log.Error().Err(err).Msg("Failed to rollback transaction")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			log.Error().Err(rollbackErr).Msg("Failed to rollback transaction")
 		}
 	}()
 
@@ -248,9 +248,8 @@ func (storage *Storage) batchSavePerRow(ctx context.Context, links []*model.Link
 		return err
 	}
 	defer func(stmt *sql.Stmt) {
-		err := stmt.Close()
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to close prepared statement")
+		if closeErr := stmt.Close(); closeErr != nil {
+			log.Error().Err(closeErr).Msg("Failed to close prepared statement")
 		}
 	}(stmt)
 

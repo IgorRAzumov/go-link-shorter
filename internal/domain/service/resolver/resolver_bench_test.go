@@ -64,7 +64,7 @@ func BenchmarkGetFullLink_DB(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer storage.Close()
+	defer func() { _ = storage.Close() }()
 
 	ctx := context.Background()
 	_ = storage.Save(ctx, &model.Link{
@@ -85,7 +85,7 @@ func BenchmarkGetShortKeyByURL_DB(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer storage.Close()
+	defer func() { _ = storage.Close() }()
 
 	ctx := context.Background()
 	_ = storage.Save(ctx, &model.Link{
