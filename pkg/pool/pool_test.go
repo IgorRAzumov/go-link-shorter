@@ -7,8 +7,8 @@ import (
 )
 
 func TestPool_GetPut(t *testing.T) {
-	p := New(func() *model.ResetableStruct {
-		return &model.ResetableStruct{}
+	p := New(func() *model.ResettableStruct {
+		return &model.ResettableStruct{}
 	})
 
 	// Get создаёт новый объект
