@@ -119,17 +119,17 @@ func setDefaults(v *viper.Viper) {
 
 func bindEnv(v *viper.Viper) {
 	envBindings := map[string]string{
-		"server_address":   "SERVER_ADDRESS",
-		"base_url":         "BASE_URL",
+		"server_address":    "SERVER_ADDRESS",
+		"base_url":          "BASE_URL",
 		"file_storage_path": "FILE_STORAGE_PATH",
-		"database_dsn":     "DATABASE_DSN",
-		"secret_key":       "SECRET_KEY",
-		"audit_file":       "AUDIT_FILE",
-		"audit_url":        "AUDIT_URL",
-		"enable_pprof":     "ENABLE_PPROF",
-		"enable_https":     "ENABLE_HTTPS",
-		"tls_cert_file":    "TLS_CERT_FILE",
-		"tls_key_file":     "TLS_KEY_FILE",
+		"database_dsn":      "DATABASE_DSN",
+		"secret_key":        "SECRET_KEY",
+		"audit_file":        "AUDIT_FILE",
+		"audit_url":         "AUDIT_URL",
+		"enable_pprof":      "ENABLE_PPROF",
+		"enable_https":      "ENABLE_HTTPS",
+		"tls_cert_file":     "TLS_CERT_FILE",
+		"tls_key_file":      "TLS_KEY_FILE",
 	}
 	for key, env := range envBindings {
 		_ = v.BindEnv(key, env)
