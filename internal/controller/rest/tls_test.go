@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"io"
 	"math/big"
 	"net"
@@ -17,115 +18,32 @@ import (
 	"time"
 )
 
-func TestGenerateSelfSignedCert_ProducesValidCertificate(t *testing.T) {
-	cert, err := generateSelfSignedCert()
-	if err != nil {
-		t.Fatalf("generateSelfSignedCert() error: %v", err)
-	}
-
-	if len(cert.Certificate) == 0 {
-		t.Fatal("Expected at least one certificate in chain")
-	}
-
-	x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
-	if err != nil {
-		t.Fatalf("ParseCertificate error: %v", err)
-	}
-
-	if len(x509Cert.Subject.Organization) == 0 {
-		t.Error("Expected Organization in certificate subject")
-	} else if x509Cert.Subject.Organization[0] != "Shortener" {
-		t.Errorf("Expected Organization Shortener, got %q", x509Cert.Subject.Organization[0])
-	}
-
-	if x509Cert.NotBefore.After(time.Now()) {
-		t.Error("Certificate NotBefore should be in the past")
-	}
-	if x509Cert.NotAfter.Before(time.Now()) {
-		t.Error("Certificate NotAfter should be in the future")
-	}
-
-	// Verify certificate can be used for TLS
-	if cert.PrivateKey == nil {
-		t.Error("Expected PrivateKey to be set")
-	}
-}
-
-func TestListenAndServeTLS_WithSelfSignedCert_AcceptsConnections(t *testing.T) {
-	// Use a random free port
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("net.Listen error: %v", err)
-	}
-	addr := listener.Addr().String()
-	_ = listener.Close()
-
+func TestListenAndServeTLS_MissingCertFiles_ReturnsError(t *testing.T) {
 	builder := &Builder{
-		serverAddress: addr,
+		serverAddress: "127.0.0.1:0",
 		tlsCertFile:   "nonexistent-cert.pem",
 		tlsKeyFile:    "nonexistent-key.pem",
 	}
-
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
-
 	server := &http.Server{
-		Addr:    addr,
-		Handler: handler,
+		Addr:    builder.serverAddress,
+		Handler: http.NewServeMux(),
 	}
 
-	done := make(chan error, 1)
-	go func() {
-		done <- builder.listenAndServeTLS(server)
-	}()
-
-	// Connect with InsecureSkipVerify since we use self-signed cert
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-		Timeout: 2 * time.Second,
+	err := builder.listenAndServeTLS(server)
+	if err == nil {
+		t.Fatal("Expected error, got nil")
 	}
-
-	var resp *http.Response
-	var getErr error
-	for i := 0; i < 100; i++ {
-		resp, getErr = client.Get("https://" + addr + "/")
-		if getErr == nil {
-			break
-		}
-		if i < 99 {
-			time.Sleep(100 * time.Millisecond)
-		}
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Expected not-exist error, got: %v", err)
 	}
-	if getErr != nil {
-		t.Fatalf("HTTPS GET error: %v", getErr)
-	}
-	defer func() {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", resp.StatusCode)
-	}
-
-	// Shutdown server
-	if err := server.Close(); err != nil {
-		t.Logf("server.Close(): %v", err)
-	}
-
-	<-done
 }
 
-func TestListenAndServeTLS_WithCertFiles_UsesListenAndServeTLS(t *testing.T) {
-	// Create temp cert and key files
-	dir := t.TempDir()
-	certFile := filepath.Join(dir, "cert.pem")
-	keyFile := filepath.Join(dir, "key.pem")
+func TestListenAndServeTLS_WithCertFiles_AcceptsConnections(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping long TLS server test in -short mode")
+	}
 
+	certFile, keyFile := writeTempCertKeyPair(t)
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatalf("GenerateKey: %v", err)
@@ -142,13 +60,8 @@ func TestListenAndServeTLS_WithCertFiles_UsesListenAndServeTLS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateCertificate: %v", err)
 	}
-	certOut, _ := os.Create(certFile)
-	_ = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: der})
-	_ = certOut.Close()
-
-	keyOut, _ := os.Create(keyFile)
-	_ = pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
-	_ = keyOut.Close()
+	writePemOrFail(t, certFile, &pem.Block{Type: "CERTIFICATE", Bytes: der})
+	writePemOrFail(t, keyFile, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -185,9 +98,7 @@ func TestListenAndServeTLS_WithCertFiles_UsesListenAndServeTLS(t *testing.T) {
 		if err == nil {
 			break
 		}
-		if i < 99 {
-			time.Sleep(100 * time.Millisecond)
-		}
+		time.Sleep(100 * time.Millisecond)
 	}
 	if err != nil {
 		t.Fatalf("HTTPS GET: %v", err)
@@ -203,4 +114,27 @@ func TestListenAndServeTLS_WithCertFiles_UsesListenAndServeTLS(t *testing.T) {
 
 	_ = server.Close()
 	<-done
+}
+
+func writeTempCertKeyPair(t *testing.T) (certFile, keyFile string) {
+	t.Helper()
+	dir := t.TempDir()
+	return filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
+}
+
+func writePemOrFail(t *testing.T, path string, block *pem.Block) {
+	t.Helper()
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("Create(%s): %v", path, err)
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	if err := pem.Encode(f, block); err != nil {
+		t.Fatalf("pem.Encode(%s): %v", path, err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("Close(%s): %v", path, err)
+	}
 }

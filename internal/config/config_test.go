@@ -256,28 +256,8 @@ func TestLoad_FromConfigFile(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	// Не задаём SERVER_ADDRESS и BASE_URL — должны использоваться значения из файла
-	oldSA, hadSA := os.LookupEnv("SERVER_ADDRESS")
-	oldBU, hadBU := os.LookupEnv("BASE_URL")
-	os.Unsetenv("SERVER_ADDRESS")
-	os.Unsetenv("BASE_URL")
+	setupTestEnv(t, "", "")
 	t.Setenv("CONFIG", configPath)
-	t.Setenv("AUDIT_FILE", "")
-	t.Setenv("AUDIT_URL", "")
-	t.Cleanup(func() {
-		if hadSA {
-			_ = os.Setenv("SERVER_ADDRESS", oldSA)
-		} else {
-			os.Unsetenv("SERVER_ADDRESS")
-		}
-		if hadBU {
-			_ = os.Setenv("BASE_URL", oldBU)
-		} else {
-			os.Unsetenv("BASE_URL")
-		}
-	})
-	pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
-	os.Args = []string{"test"}
 
 	cfg := loadConfigOrFail(t)
 
@@ -386,8 +366,8 @@ func TestLoad_ConfigFileOverriddenByFlag_StorageAndDB(t *testing.T) {
 	t.Setenv("CONFIG", configPath)
 	t.Setenv("AUDIT_FILE", "")
 	t.Setenv("AUDIT_URL", "")
-	os.Unsetenv("FILE_STORAGE_PATH")
-	os.Unsetenv("DATABASE_DSN")
+	_ = os.Unsetenv("FILE_STORAGE_PATH")
+	_ = os.Unsetenv("DATABASE_DSN")
 
 	pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
 	os.Args = []string{"test", "-f", "/flag/file.db", "-d", "postgres://flag/db"}
@@ -421,27 +401,7 @@ func TestLoad_ConfigFileViaFlag(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	oldSA, hadSA := os.LookupEnv("SERVER_ADDRESS")
-	oldBU, hadBU := os.LookupEnv("BASE_URL")
-	os.Unsetenv("SERVER_ADDRESS")
-	os.Unsetenv("BASE_URL")
-	os.Unsetenv("CONFIG") // флаг -c имеет приоритет над CONFIG
-	t.Setenv("AUDIT_FILE", "")
-	t.Setenv("AUDIT_URL", "")
-	t.Cleanup(func() {
-		if hadSA {
-			_ = os.Setenv("SERVER_ADDRESS", oldSA)
-		} else {
-			os.Unsetenv("SERVER_ADDRESS")
-		}
-		if hadBU {
-			_ = os.Setenv("BASE_URL", oldBU)
-		} else {
-			os.Unsetenv("BASE_URL")
-		}
-	})
-	pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
-	os.Args = []string{"test", "-c", configPath}
+	setupTestEnvWithFlags(t, "", "", []string{"test", "-c", configPath})
 
 	cfg := loadConfigOrFail(t)
 

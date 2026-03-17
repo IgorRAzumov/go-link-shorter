@@ -18,12 +18,11 @@ jobs:
 
   shortenertest:
     runs-on: ubuntu-latest
-    container: golang:1.25
+    container: golang:1.26
     needs: branchtest
 
     env:
       DATABASE_CONN_STRING: "postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable"
-      GOTOOLCHAIN: auto
 
     services:
       postgres:

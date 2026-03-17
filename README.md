@@ -181,3 +181,7 @@ Type: alloc_space
 `database/sql` (подготовка/выполнение statement), меньше `strings.genSplit` при сборке запроса. Итог: throughput +37% (
 357→488 iter/s), аллокаций −299 на операцию (2172→1873).
 
+## Пример конфигурационного файла
+
+config_example.json
+
