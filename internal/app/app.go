@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/signal"
 	"syscall"
 
@@ -55,6 +54,12 @@ func Run(config *config.Config) error {
 		dataBaseStorage = &database.Storage{}
 	}
 
+	defer func() {
+		if err := dataBaseStorage.Close(); err != nil {
+			log.Error().Err(err).Msg("Failed to close database storage")
+		}
+	}()
+
 	healthCheckService := healthcheck.NewHealthCheckService(dataBaseStorage)
 	healthCheckUsecase := healthcheckusecase.NewHealthCheckUsecase(healthCheckService)
 
@@ -62,7 +67,12 @@ func Run(config *config.Config) error {
 	linkReadUsecase := link.NewLinkReadUsecase(resolverService, config.BaseShortURL)
 	linkDeleteUsecase := link.NewLinkDeleteUsecase(deleteService)
 
-	serverCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	serverCtx, stop := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
 	defer stop()
 
 	if serverError := rest.NewServerBuilder().
