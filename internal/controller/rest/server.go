@@ -22,6 +22,9 @@ type Builder struct {
 	auditor            service.AuditorService
 	serverAddress      string
 	enablePprof        bool
+	enableHTTPS        bool
+	tlsCertFile        string
+	tlsKeyFile         string
 }
 
 // NewServerBuilder создаёт билдер сервера.
@@ -81,6 +84,14 @@ func (builder *Builder) WithEnablePprof(enable bool) *Builder {
 	return builder
 }
 
+// WithEnableHTTPS включает HTTPS (TLS) и задаёт пути к сертификату и ключу.
+func (builder *Builder) WithEnableHTTPS(enable bool, certFile, keyFile string) *Builder {
+	builder.enableHTTPS = enable
+	builder.tlsCertFile = certFile
+	builder.tlsKeyFile = keyFile
+	return builder
+}
+
 // Start запускает HTTP-сервер. Блокируется до остановки сервера.
 func (builder *Builder) Start() error {
 	router := NewRouter(
@@ -107,7 +118,13 @@ func (builder *Builder) Start() error {
 		}
 	}()
 
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	var err error
+	if builder.enableHTTPS {
+		err = builder.listenAndServeTLS(server)
+	} else {
+		err = server.ListenAndServe()
+	}
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil

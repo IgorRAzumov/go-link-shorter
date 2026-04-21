@@ -1,9 +1,11 @@
 package config
 
 import (
-	"flag"
 	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/spf13/pflag"
 )
 
 func TestLoad_DefaultValues(t *testing.T) {
@@ -133,7 +135,11 @@ func setupTestEnv(t *testing.T, serverAddress, baseURL string) {
 	t.Setenv("BASE_URL", baseURL)
 	t.Setenv("AUDIT_FILE", "")
 	t.Setenv("AUDIT_URL", "")
-	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
+	t.Setenv("CONFIG", "")
+	pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
+	oldArgs := os.Args
+	os.Args = []string{"test"}
+	t.Cleanup(func() { os.Args = oldArgs })
 }
 
 func setupTestEnvWithFlags(t *testing.T, serverAddress, baseURL string, flagArgs []string) {
@@ -158,5 +164,231 @@ func assertConfig(t *testing.T, cfg *Config, expectedServerAddress, expectedBase
 	}
 	if cfg.BaseShortURL != expectedBaseURL {
 		t.Errorf("Expected BaseShortURL '%s', got '%s'", expectedBaseURL, cfg.BaseShortURL)
+	}
+}
+
+func TestLoad_EnableHTTPS_FromEnv(t *testing.T) {
+	setupTestEnv(t, "", "")
+	t.Setenv("ENABLE_HTTPS", "true")
+
+	cfg := loadConfigOrFail(t)
+
+	if !cfg.EnableHTTPS {
+		t.Error("Expected EnableHTTPS true from ENABLE_HTTPS env, got false")
+	}
+	if cfg.TLSCertFile != "cert.pem" {
+		t.Errorf("Expected default TLSCertFile cert.pem when HTTPS enabled, got %q", cfg.TLSCertFile)
+	}
+	if cfg.TLSKeyFile != "key.pem" {
+		t.Errorf("Expected default TLSKeyFile key.pem when HTTPS enabled, got %q", cfg.TLSKeyFile)
+	}
+}
+
+func TestLoad_EnableHTTPS_FromFlag(t *testing.T) {
+	setupTestEnvWithFlags(t, "", "", []string{"test", "-s"})
+
+	cfg := loadConfigOrFail(t)
+
+	if !cfg.EnableHTTPS {
+		t.Error("Expected EnableHTTPS true from -s flag, got false")
+	}
+	if cfg.TLSCertFile != "cert.pem" {
+		t.Errorf("Expected default TLSCertFile cert.pem when HTTPS enabled, got %q", cfg.TLSCertFile)
+	}
+	if cfg.TLSKeyFile != "key.pem" {
+		t.Errorf("Expected default TLSKeyFile key.pem when HTTPS enabled, got %q", cfg.TLSKeyFile)
+	}
+}
+
+func TestLoad_EnableHTTPS_DefaultsToFalse(t *testing.T) {
+	setupTestEnv(t, "", "")
+
+	cfg := loadConfigOrFail(t)
+
+	if cfg.EnableHTTPS {
+		t.Error("Expected EnableHTTPS false by default, got true")
+	}
+}
+
+func TestLoad_TLSCertKey_FromFlags(t *testing.T) {
+	setupTestEnvWithFlags(t, "", "", []string{"test", "-s", "--tls-cert", "/path/to/cert.pem", "--tls-key", "/path/to/key.pem"})
+
+	cfg := loadConfigOrFail(t)
+
+	if !cfg.EnableHTTPS {
+		t.Error("Expected EnableHTTPS true, got false")
+	}
+	if cfg.TLSCertFile != "/path/to/cert.pem" {
+		t.Errorf("Expected TLSCertFile /path/to/cert.pem, got %q", cfg.TLSCertFile)
+	}
+	if cfg.TLSKeyFile != "/path/to/key.pem" {
+		t.Errorf("Expected TLSKeyFile /path/to/key.pem, got %q", cfg.TLSKeyFile)
+	}
+}
+
+func TestLoad_TLSCertKey_FromEnv(t *testing.T) {
+	setupTestEnv(t, "", "")
+	t.Setenv("ENABLE_HTTPS", "true")
+	t.Setenv("TLS_CERT_FILE", "/env/cert.pem")
+	t.Setenv("TLS_KEY_FILE", "/env/key.pem")
+
+	cfg := loadConfigOrFail(t)
+
+	if cfg.TLSCertFile != "/env/cert.pem" {
+		t.Errorf("Expected TLSCertFile from env /env/cert.pem, got %q", cfg.TLSCertFile)
+	}
+	if cfg.TLSKeyFile != "/env/key.pem" {
+		t.Errorf("Expected TLSKeyFile from env /env/key.pem, got %q", cfg.TLSKeyFile)
+	}
+}
+
+func TestLoad_FromConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.json")
+	configContent := `{
+		"server_address": "config-server:9000",
+		"base_url": "http://config-base.com",
+		"file_storage_path": "/config/file.db",
+		"database_dsn": "postgres://config/db",
+		"enable_https": true
+	}`
+	if err := os.WriteFile(configPath, []byte(configContent), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	// Не задаём SERVER_ADDRESS и BASE_URL — должны использоваться значения из файла
+	oldSA, hadSA := os.LookupEnv("SERVER_ADDRESS")
+	oldBU, hadBU := os.LookupEnv("BASE_URL")
+	os.Unsetenv("SERVER_ADDRESS")
+	os.Unsetenv("BASE_URL")
+	t.Setenv("CONFIG", configPath)
+	t.Setenv("AUDIT_FILE", "")
+	t.Setenv("AUDIT_URL", "")
+	t.Cleanup(func() {
+		if hadSA {
+			_ = os.Setenv("SERVER_ADDRESS", oldSA)
+		} else {
+			os.Unsetenv("SERVER_ADDRESS")
+		}
+		if hadBU {
+			_ = os.Setenv("BASE_URL", oldBU)
+		} else {
+			os.Unsetenv("BASE_URL")
+		}
+	})
+	pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
+	os.Args = []string{"test"}
+
+	cfg := loadConfigOrFail(t)
+
+	if cfg.ServerAddress != "config-server:9000" {
+		t.Errorf("Expected ServerAddress from config, got %q", cfg.ServerAddress)
+	}
+	if cfg.BaseShortURL != "http://config-base.com" {
+		t.Errorf("Expected BaseShortURL from config, got %q", cfg.BaseShortURL)
+	}
+	if cfg.FileStoragePath != "/config/file.db" {
+		t.Errorf("Expected FileStoragePath from config, got %q", cfg.FileStoragePath)
+	}
+	if cfg.DatabaseAddress != "postgres://config/db" {
+		t.Errorf("Expected DatabaseAddress from config, got %q", cfg.DatabaseAddress)
+	}
+	if !cfg.EnableHTTPS {
+		t.Error("Expected EnableHTTPS true from config")
+	}
+}
+
+func TestLoad_ConfigFileOverriddenByEnv(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.json")
+	configContent := `{"server_address": "config-server:9000", "base_url": "http://config-base.com"}`
+	if err := os.WriteFile(configPath, []byte(configContent), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	setupTestEnv(t, "env-server:8080", "http://env-base.com")
+	t.Setenv("CONFIG", configPath)
+	os.Args = []string{"test"}
+
+	cfg := loadConfigOrFail(t)
+
+	if cfg.ServerAddress != "env-server:8080" {
+		t.Errorf("Expected env to override config ServerAddress, got %q", cfg.ServerAddress)
+	}
+	if cfg.BaseShortURL != "http://env-base.com" {
+		t.Errorf("Expected env to override config BaseShortURL, got %q", cfg.BaseShortURL)
+	}
+}
+
+func TestLoad_ConfigFileOverriddenByFlag(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.json")
+	configContent := `{"server_address": "config-server:9000", "base_url": "http://config-base.com"}`
+	if err := os.WriteFile(configPath, []byte(configContent), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	setupTestEnv(t, "", "")
+	t.Setenv("CONFIG", configPath)
+	os.Args = []string{"test", "-a", "flag-server:7777", "-b", "http://flag-base.com"}
+
+	cfg := loadConfigOrFail(t)
+
+	if cfg.ServerAddress != "flag-server:7777" {
+		t.Errorf("Expected flag to override config ServerAddress, got %q", cfg.ServerAddress)
+	}
+	if cfg.BaseShortURL != "http://flag-base.com" {
+		t.Errorf("Expected flag to override config BaseShortURL, got %q", cfg.BaseShortURL)
+	}
+}
+
+func TestLoad_ConfigFileNotFound(t *testing.T) {
+	setupTestEnv(t, "", "")
+	t.Setenv("CONFIG", "/nonexistent/config.json")
+	os.Args = []string{"test"}
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() should return error for nonexistent config file")
+	}
+}
+
+func TestLoad_ConfigFileViaFlag(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.json")
+	configContent := `{"server_address": "flag-config-server:8000", "base_url": "http://flag-config.com"}`
+	if err := os.WriteFile(configPath, []byte(configContent), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	oldSA, hadSA := os.LookupEnv("SERVER_ADDRESS")
+	oldBU, hadBU := os.LookupEnv("BASE_URL")
+	os.Unsetenv("SERVER_ADDRESS")
+	os.Unsetenv("BASE_URL")
+	os.Unsetenv("CONFIG") // флаг -c имеет приоритет над CONFIG
+	t.Setenv("AUDIT_FILE", "")
+	t.Setenv("AUDIT_URL", "")
+	t.Cleanup(func() {
+		if hadSA {
+			_ = os.Setenv("SERVER_ADDRESS", oldSA)
+		} else {
+			os.Unsetenv("SERVER_ADDRESS")
+		}
+		if hadBU {
+			_ = os.Setenv("BASE_URL", oldBU)
+		} else {
+			os.Unsetenv("BASE_URL")
+		}
+	})
+	pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
+	os.Args = []string{"test", "-c", configPath}
+
+	cfg := loadConfigOrFail(t)
+
+	if cfg.ServerAddress != "flag-config-server:8000" {
+		t.Errorf("Expected ServerAddress from -c config file, got %q", cfg.ServerAddress)
+	}
+	if cfg.BaseShortURL != "http://flag-config.com" {
+		t.Errorf("Expected BaseShortURL from -c config file, got %q", cfg.BaseShortURL)
 	}
 }

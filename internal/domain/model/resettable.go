@@ -1,5 +1,6 @@
 package model
 
+// ResettableStruct — структура для тестирования генератора Reset.
 // generate:reset
 type ResettableStruct struct {
 	IntVal   int
