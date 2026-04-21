@@ -342,6 +342,66 @@ func TestLoad_ConfigFileOverriddenByFlag(t *testing.T) {
 	}
 }
 
+func TestLoad_ConfigFileOverriddenByEnv_StorageAndDB(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.json")
+	configContent := `{
+		"file_storage_path": "/config/file.db",
+		"database_dsn": "postgres://config/db"
+	}`
+	if err := os.WriteFile(configPath, []byte(configContent), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	t.Setenv("CONFIG", configPath)
+	t.Setenv("FILE_STORAGE_PATH", "/env/file.db")
+	t.Setenv("DATABASE_DSN", "postgres://env/db")
+	t.Setenv("AUDIT_FILE", "")
+	t.Setenv("AUDIT_URL", "")
+
+	pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
+	os.Args = []string{"test"}
+
+	cfg := loadConfigOrFail(t)
+
+	if cfg.FileStoragePath != "/env/file.db" {
+		t.Errorf("Expected env to override config FileStoragePath, got %q", cfg.FileStoragePath)
+	}
+	if cfg.DatabaseAddress != "postgres://env/db" {
+		t.Errorf("Expected env to override config DatabaseAddress, got %q", cfg.DatabaseAddress)
+	}
+}
+
+func TestLoad_ConfigFileOverriddenByFlag_StorageAndDB(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.json")
+	configContent := `{
+		"file_storage_path": "/config/file.db",
+		"database_dsn": "postgres://config/db"
+	}`
+	if err := os.WriteFile(configPath, []byte(configContent), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	t.Setenv("CONFIG", configPath)
+	t.Setenv("AUDIT_FILE", "")
+	t.Setenv("AUDIT_URL", "")
+	os.Unsetenv("FILE_STORAGE_PATH")
+	os.Unsetenv("DATABASE_DSN")
+
+	pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
+	os.Args = []string{"test", "-f", "/flag/file.db", "-d", "postgres://flag/db"}
+
+	cfg := loadConfigOrFail(t)
+
+	if cfg.FileStoragePath != "/flag/file.db" {
+		t.Errorf("Expected flag to override config FileStoragePath, got %q", cfg.FileStoragePath)
+	}
+	if cfg.DatabaseAddress != "postgres://flag/db" {
+		t.Errorf("Expected flag to override config DatabaseAddress, got %q", cfg.DatabaseAddress)
+	}
+}
+
 func TestLoad_ConfigFileNotFound(t *testing.T) {
 	setupTestEnv(t, "", "")
 	t.Setenv("CONFIG", "/nonexistent/config.json")
