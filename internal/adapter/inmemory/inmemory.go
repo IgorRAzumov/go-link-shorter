@@ -164,6 +164,36 @@ func (storage *LinkStorage) BatchSave(ctx context.Context, links []*model.Link) 
 	return nil
 }
 
+// CountURLs возвращает количество не удалённых сокращённых ссылок.
+func (storage *LinkStorage) CountURLs(ctx context.Context) (int, error) {
+	storage.mu.RLock()
+	defer storage.mu.RUnlock()
+
+	count := 0
+	storage.linksByID.Range(func(_, value interface{}) bool {
+		if link, ok := value.(*adapter.Link); ok && !link.DeletedFlag {
+			count++
+		}
+		return true
+	})
+	return count, nil
+}
+
+// CountUsers возвращает количество уникальных пользователей, сокращавших ссылки.
+func (storage *LinkStorage) CountUsers(ctx context.Context) (int, error) {
+	storage.mu.RLock()
+	defer storage.mu.RUnlock()
+
+	users := make(map[string]struct{})
+	storage.linksByID.Range(func(_, value interface{}) bool {
+		if link, ok := value.(*adapter.Link); ok && link.UserID != "" {
+			users[link.UserID] = struct{}{}
+		}
+		return true
+	})
+	return len(users), nil
+}
+
 func (storage *LinkStorage) loadFromFile() error {
 	storage.mu.Lock()
 	defer storage.mu.Unlock()

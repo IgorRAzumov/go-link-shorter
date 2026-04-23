@@ -31,3 +31,8 @@ type LinkDeleteUsecase interface {
 type HealthCheckUsecase interface {
 	CheckSystemConnections(ctx context.Context) (bool, error)
 }
+
+// StatsUsecase — use case получения статистики сервиса.
+type StatsUsecase interface {
+	GetStats(ctx context.Context) (model.ServiceStats, error)
+}

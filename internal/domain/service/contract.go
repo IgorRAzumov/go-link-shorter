@@ -42,3 +42,8 @@ type AuthService interface {
 type AuditorService interface {
 	AuditNewEvent(ctx context.Context, event model.AuditEvent)
 }
+
+// StatsService — сервис агрегированной статистики сервиса сокращения ссылок.
+type StatsService interface {
+	GetStats(ctx context.Context) (model.ServiceStats, error)
+}
