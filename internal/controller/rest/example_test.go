@@ -21,7 +21,13 @@ import (
 func makeRouter(createUC usecase.LinkCreateUsecase, readUC usecase.LinkReadUsecase, deleteUC usecase.LinkDeleteUsecase) http.Handler {
 	authSvc := auth.NewAuthService("example-secret")
 	healthUC := &commontesting.MockHealthCheckUsecase{}
-	return rest.NewRouter(createUC, readUC, deleteUC, healthUC, authSvc, nil, false)
+	return rest.NewRouter(rest.RouterDeps{
+		LinkCreateUsecase: createUC,
+		LinkReadUsecase:   readUC,
+		LinkDeleteUsecase: deleteUC,
+		HealthCheck:       healthUC,
+		AuthService:       authSvc,
+	})
 }
 
 // ExampleNewRouter_shortenText демонстрирует POST / — сокращение URL из тела (Content-Type: text/plain).
@@ -188,7 +194,10 @@ func ExampleNewRouter_ping() {
 		},
 	}
 	authSvc := auth.NewAuthService("example-secret")
-	router := rest.NewRouter(nil, nil, nil, healthUC, authSvc, nil, false)
+	router := rest.NewRouter(rest.RouterDeps{
+		HealthCheck: healthUC,
+		AuthService: authSvc,
+	})
 
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	w := httptest.NewRecorder()

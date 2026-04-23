@@ -9,5 +9,6 @@
   "enable_pprof": false,
   "enable_https": false,
   "tls_cert_file": "",
-  "tls_key_file": ""
+  "tls_key_file": "",
+  "trusted_subnet": ""
 }

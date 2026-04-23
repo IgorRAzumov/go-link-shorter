@@ -314,6 +314,36 @@ func (storage *Storage) GetByUserID(ctx context.Context, userID string) ([]*mode
 	return links, nil
 }
 
+// CountURLs возвращает количество не удалённых сокращённых ссылок в БД.
+func (storage *Storage) CountURLs(ctx context.Context) (int, error) {
+	if storage.db == nil {
+		return 0, nil
+	}
+
+	var count int
+	err := storage.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM links WHERE is_deleted = FALSE").Scan(&count)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to count URLs")
+		return 0, err
+	}
+	return count, nil
+}
+
+// CountUsers возвращает количество уникальных пользователей, сокращавших ссылки.
+func (storage *Storage) CountUsers(ctx context.Context) (int, error) {
+	if storage.db == nil {
+		return 0, nil
+	}
+
+	var count int
+	err := storage.db.QueryRowContext(ctx, "SELECT COUNT(DISTINCT user_id) FROM links WHERE user_id <> ''").Scan(&count)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to count users")
+		return 0, err
+	}
+	return count, nil
+}
+
 func (storage *Storage) MarkDeleted(ctx context.Context, userID string, shortKeys []string) error {
 	if storage.db == nil {
 		return nil

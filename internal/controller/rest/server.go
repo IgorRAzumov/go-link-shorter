@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"time"
 
@@ -18,6 +19,7 @@ type Builder struct {
 	linkReadUsecase    usecase.LinkReadUsecase
 	linkDeleteUsecase  usecase.LinkDeleteUsecase
 	healthCheckUsecase usecase.HealthCheckUsecase
+	statsUsecase       usecase.StatsUsecase
 	authService        service.AuthService
 	auditor            service.AuditorService
 	serverAddress      string
@@ -25,6 +27,7 @@ type Builder struct {
 	enableHTTPS        bool
 	tlsCertFile        string
 	tlsKeyFile         string
+	trustedSubnet      *net.IPNet
 }
 
 // NewServerBuilder создаёт билдер сервера.
@@ -57,6 +60,19 @@ func (builder *Builder) WithLinkDeleteUsecase(usecase usecase.LinkDeleteUsecase)
 // WithHealthCheckUsecase задаёт use case проверки здоровья.
 func (builder *Builder) WithHealthCheckUsecase(usecase usecase.HealthCheckUsecase) *Builder {
 	builder.healthCheckUsecase = usecase
+	return builder
+}
+
+// WithStatsUsecase задаёт use case получения статистики сервиса.
+func (builder *Builder) WithStatsUsecase(usecase usecase.StatsUsecase) *Builder {
+	builder.statsUsecase = usecase
+	return builder
+}
+
+// WithTrustedSubnet задаёт доверенную подсеть (CIDR) для внутренних эндпоинтов.
+// Значение nil запрещает доступ к защищённым эндпоинтам для любого клиента.
+func (builder *Builder) WithTrustedSubnet(subnet *net.IPNet) *Builder {
+	builder.trustedSubnet = subnet
 	return builder
 }
 
@@ -94,15 +110,17 @@ func (builder *Builder) WithEnableHTTPS(enable bool, certFile, keyFile string) *
 
 // Start запускает HTTP-сервер. Блокируется до остановки сервера.
 func (builder *Builder) Start() error {
-	router := NewRouter(
-		builder.linkCreateUsecase,
-		builder.linkReadUsecase,
-		builder.linkDeleteUsecase,
-		builder.healthCheckUsecase,
-		builder.authService,
-		builder.auditor,
-		builder.enablePprof,
-	)
+	router := NewRouter(RouterDeps{
+		LinkCreateUsecase: builder.linkCreateUsecase,
+		LinkReadUsecase:   builder.linkReadUsecase,
+		LinkDeleteUsecase: builder.linkDeleteUsecase,
+		HealthCheck:       builder.healthCheckUsecase,
+		StatsUsecase:      builder.statsUsecase,
+		AuthService:       builder.authService,
+		Auditor:           builder.auditor,
+		EnablePprof:       builder.enablePprof,
+		TrustedSubnet:     builder.trustedSubnet,
+	})
 
 	server := &http.Server{
 		Addr:    builder.serverAddress,

@@ -32,3 +32,9 @@ type HealthCheckRepository interface {
 type AuditRepository interface {
 	Save(ctx context.Context, event model.AuditEvent) error
 }
+
+// StatsRepository определяет контракт получения статистики сервиса.
+type StatsRepository interface {
+	CountURLs(ctx context.Context) (int, error)
+	CountUsers(ctx context.Context) (int, error)
+}

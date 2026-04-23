@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"net"
 	"os/signal"
 	"syscall"
 
@@ -19,13 +20,20 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/healthcheck"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/resolver"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/shorter"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/stats"
 	healthcheckusecase "github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase/healthcheck"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase/link"
+	statisticusecase "github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase/statistic"
 	"github.com/rs/zerolog/log"
 )
 
 func Run(config *config.Config) error {
 	linkRepository, err := initStorage(config.DatabaseAddress, config.FileStoragePath)
+	if err != nil {
+		return err
+	}
+
+	trustedSubnet, err := parseTrustedSubnet(config.TrustedSubnet)
 	if err != nil {
 		return err
 	}
@@ -67,6 +75,13 @@ func Run(config *config.Config) error {
 	linkReadUsecase := link.NewLinkReadUsecase(resolverService, config.BaseShortURL)
 	linkDeleteUsecase := link.NewLinkDeleteUsecase(deleteService)
 
+	statsRepo, ok := linkRepository.(repository.StatsRepository)
+	if !ok {
+		return fmt.Errorf("link repository does not implement StatsRepository")
+	}
+	statsService := stats.NewService(statsRepo)
+	statsUsecase := statisticusecase.NewUsecase(statsService)
+
 	serverCtx, stop := signal.NotifyContext(
 		context.Background(),
 		syscall.SIGINT,
@@ -81,11 +96,13 @@ func Run(config *config.Config) error {
 		WithLinkReadUsecase(linkReadUsecase).
 		WithLinkDeleteUsecase(linkDeleteUsecase).
 		WithHealthCheckUsecase(healthCheckUsecase).
+		WithStatsUsecase(statsUsecase).
 		WithAuthService(authService).
 		WithAuditor(auditorService).
 		WithServerAddress(config.ServerAddress).
 		WithEnablePprof(config.EnablePprof).
 		WithEnableHTTPS(config.EnableHTTPS, config.TLSCertFile, config.TLSKeyFile).
+		WithTrustedSubnet(trustedSubnet).
 		Start(); serverError != nil {
 		return serverError
 	}
@@ -93,6 +110,17 @@ func Run(config *config.Config) error {
 	deleteService.Stop()
 	deleteService.Wait()
 	return nil
+}
+
+func parseTrustedSubnet(value string) (*net.IPNet, error) {
+	if value == "" {
+		return nil, nil
+	}
+	_, subnet, err := net.ParseCIDR(value)
+	if err != nil {
+		return nil, fmt.Errorf("invalid trusted subnet CIDR %q: %w", value, err)
+	}
+	return subnet, nil
 }
 
 func initAuditorService(auditFile, auditURL string) (service.AuditorService, func() error, error) {

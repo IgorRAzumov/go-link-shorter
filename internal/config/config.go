@@ -24,6 +24,7 @@ type Config struct {
 	EnableHTTPS     bool   `mapstructure:"enable_https"`
 	TLSCertFile     string `mapstructure:"tls_cert_file"`
 	TLSKeyFile      string `mapstructure:"tls_key_file"`
+	TrustedSubnet   string `mapstructure:"trusted_subnet"`
 }
 
 // Load загружает конфигурацию из файла (если указан), переменных окружения и флагов.
@@ -59,6 +60,7 @@ type flagValues struct {
 	enableHTTPS     bool
 	tlsCertFile     string
 	tlsKeyFile      string
+	trustedSubnet   string
 }
 
 func parseFlags() flagValues {
@@ -74,6 +76,7 @@ func parseFlags() flagValues {
 	enableHTTPS := pflag.BoolP("https", "s", false, "enable HTTPS (TLS) server")
 	tlsCertFile := pflag.String("tls-cert", "", "path to TLS certificate file (default: cert.pem when HTTPS enabled)")
 	tlsKeyFile := pflag.String("tls-key", "", "path to TLS private key file (default: key.pem when HTTPS enabled)")
+	trustedSubnet := pflag.StringP("trusted-subnet", "t", "", "trusted subnet in CIDR notation for internal endpoints")
 	pflag.Parse()
 
 	configFilePath := *configPath
@@ -94,6 +97,7 @@ func parseFlags() flagValues {
 		enableHTTPS:     *enableHTTPS,
 		tlsCertFile:     *tlsCertFile,
 		tlsKeyFile:      *tlsKeyFile,
+		trustedSubnet:   *trustedSubnet,
 	}
 }
 
@@ -130,6 +134,7 @@ func bindEnv(v *viper.Viper) {
 		"enable_https":      "ENABLE_HTTPS",
 		"tls_cert_file":     "TLS_CERT_FILE",
 		"tls_key_file":      "TLS_KEY_FILE",
+		"trusted_subnet":    "TRUSTED_SUBNET",
 	}
 	for key, env := range envBindings {
 		_ = v.BindEnv(key, env)
@@ -167,6 +172,7 @@ func applyFlags(v *viper.Viper, flags flagValues) {
 	overrideIfEnvEmpty("audit_url", "AUDIT_URL", flags.auditURL)
 	overrideIfEnvEmpty("tls_cert_file", "TLS_CERT_FILE", flags.tlsCertFile)
 	overrideIfEnvEmpty("tls_key_file", "TLS_KEY_FILE", flags.tlsKeyFile)
+	overrideIfEnvEmpty("trusted_subnet", "TRUSTED_SUBNET", flags.trustedSubnet)
 
 	if os.Getenv("ENABLE_PPROF") == "" && flagChanged("pprof") {
 		v.Set("enable_pprof", flags.enablePprof)
