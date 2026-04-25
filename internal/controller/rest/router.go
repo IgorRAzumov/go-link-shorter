@@ -34,15 +34,23 @@ type RouterDeps struct {
 }
 
 // NewRouter создаёт HTTP-роутер со всеми эндпоинтами сервиса сокращения ссылок.
+//
+// Эндпоинты разделены на две группы:
+//   - публичные/пользовательские — проходят через auth middleware (ставят анонимную cookie);
+//   - внутренние (/api/internal/**) — НЕ проходят через auth, но защищены доверенной подсетью.
 func NewRouter(deps RouterDeps) http.Handler {
 	router := chi.NewRouter()
-	router.Use(middleware.HTTPLogger, gzip.GZIP, auth.Middleware(deps.AuthService))
-	router.Post("/", shorter.Handler(deps.LinkCreateUsecase, deps.Auditor))
-	router.Get("/api/user/urls", shorter.UserURLsHandler(deps.LinkReadUsecase))
-	router.Delete("/api/user/urls", shorter.UserURLsDeleteHandler(deps.LinkDeleteUsecase))
-	router.Post("/api/shorten", shorter.APIHandler(deps.LinkCreateUsecase, deps.Auditor))
-	router.Post("/api/shorten/batch", shorter.BatchAPIHandler(deps.LinkCreateUsecase))
-	router.Get("/{shortKey}", resolver.Handler(deps.LinkReadUsecase, deps.Auditor))
+	router.Use(middleware.HTTPLogger, gzip.GZIP)
+
+	router.Group(func(r chi.Router) {
+		r.Use(auth.Middleware(deps.AuthService))
+		r.Post("/", shorter.Handler(deps.LinkCreateUsecase, deps.Auditor))
+		r.Get("/api/user/urls", shorter.UserURLsHandler(deps.LinkReadUsecase))
+		r.Delete("/api/user/urls", shorter.UserURLsDeleteHandler(deps.LinkDeleteUsecase))
+		r.Post("/api/shorten", shorter.APIHandler(deps.LinkCreateUsecase, deps.Auditor))
+		r.Post("/api/shorten/batch", shorter.BatchAPIHandler(deps.LinkCreateUsecase))
+		r.Get("/{shortKey}", resolver.Handler(deps.LinkReadUsecase, deps.Auditor))
+	})
 
 	router.Group(func(r chi.Router) {
 		r.Use(trustedsubnet.Middleware(deps.TrustedSubnet))

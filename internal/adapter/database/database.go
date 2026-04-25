@@ -336,7 +336,9 @@ func (storage *Storage) CountUsers(ctx context.Context) (int, error) {
 	}
 
 	var count int
-	err := storage.db.QueryRowContext(ctx, "SELECT COUNT(DISTINCT user_id) FROM links WHERE user_id <> ''").Scan(&count)
+	err := storage.db.QueryRowContext(ctx,
+		"SELECT COUNT(DISTINCT user_id) FROM links WHERE user_id <> '' AND is_deleted = FALSE",
+	).Scan(&count)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to count users")
 		return 0, err

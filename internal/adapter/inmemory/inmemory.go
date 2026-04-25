@@ -186,7 +186,7 @@ func (storage *LinkStorage) CountUsers(ctx context.Context) (int, error) {
 
 	users := make(map[string]struct{})
 	storage.linksByID.Range(func(_, value interface{}) bool {
-		if link, ok := value.(*adapter.Link); ok && link.UserID != "" {
+		if link, ok := value.(*adapter.Link); ok && link.UserID != "" && !link.DeletedFlag {
 			users[link.UserID] = struct{}{}
 		}
 		return true

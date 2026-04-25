@@ -11,6 +11,7 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/adapter/database"
 	"github.com/IgorRAzumov/go-link-shorter/internal/adapter/inmemory"
 	"github.com/IgorRAzumov/go-link-shorter/internal/config"
+	shortenergrpc "github.com/IgorRAzumov/go-link-shorter/internal/controller/grpc/shortener"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/repository"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service"
@@ -21,6 +22,7 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/resolver"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/shorter"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service/stats"
+	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 	healthcheckusecase "github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase/healthcheck"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase/link"
 	statisticusecase "github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase/statistic"
@@ -46,8 +48,8 @@ func Run(config *config.Config) error {
 	}
 	if auditorService != nil && closeAudit != nil {
 		defer func() {
-			if err := closeAudit(); err != nil {
-				log.Error().Err(err).Msg("Failed to close audit file")
+			if closeErr := closeAudit(); closeErr != nil {
+				log.Error().Err(closeErr).Msg("Failed to close audit file")
 			}
 		}()
 	}
@@ -63,8 +65,8 @@ func Run(config *config.Config) error {
 	}
 
 	defer func() {
-		if err := dataBaseStorage.Close(); err != nil {
-			log.Error().Err(err).Msg("Failed to close database storage")
+		if closeErr := dataBaseStorage.Close(); closeErr != nil {
+			log.Error().Err(closeErr).Msg("Failed to close database storage")
 		}
 	}()
 
@@ -90,6 +92,17 @@ func Run(config *config.Config) error {
 	)
 	defer stop()
 
+	grpcErrCh, err := startGrpc(serverCtx, config, authService, linkCreateUsecase, linkReadUsecase)
+	if err != nil {
+		return err
+	}
+	go func() {
+		if grpcErr := <-grpcErrCh; grpcErr != nil {
+			log.Error().Err(grpcErr).Msg("gRPC server failed, shutting down")
+			stop()
+		}
+	}()
+
 	if serverError := rest.NewServerBuilder().
 		WithContext(serverCtx).
 		WithLinkCreateUsecase(linkCreateUsecase).
@@ -110,6 +123,29 @@ func Run(config *config.Config) error {
 	deleteService.Stop()
 	deleteService.Wait()
 	return nil
+}
+
+func startGrpc(
+	ctx context.Context,
+	config *config.Config,
+	authService service.AuthService,
+	linkCreateUsecase usecase.LinkCreateUsecase,
+	linkReadUsecase usecase.LinkReadUsecase,
+) (<-chan error, error) {
+	grpcServer, err := shortenergrpc.NewGRPCServer(authService, shortenergrpc.TLSConfig{
+		Enable:   config.EnableHTTPS,
+		CertFile: config.TLSCertFile,
+		KeyFile:  config.TLSKeyFile,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	svc := shortenergrpc.NewServer(authService, linkCreateUsecase, linkReadUsecase, config.BaseShortURL)
+	svc.Register(grpcServer)
+
+	log.Info().Str("addr", config.GRPCAddress).Msg("Starting gRPC server")
+	return shortenergrpc.Serve(ctx, config.GRPCAddress, grpcServer)
 }
 
 func parseTrustedSubnet(value string) (*net.IPNet, error) {

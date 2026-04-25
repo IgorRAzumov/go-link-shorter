@@ -103,6 +103,41 @@ func TestAuthMiddleware_RejectsInvalidCookie(t *testing.T) {
 	}
 }
 
+func TestAuthMiddleware_AuthenticatedFlagSetForValidCookie(t *testing.T) {
+	authSvc := authservice.NewAuthService("test-secret-key")
+	var authenticated bool
+	handler := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		authenticated = authctx.IsAuthenticated(r.Context())
+	})
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.AddCookie(&http.Cookie{Name: "user_id", Value: authSvc.SignUserID("u1")})
+	rr := httptest.NewRecorder()
+
+	Middleware(authSvc)(handler).ServeHTTP(rr, req)
+
+	if !authenticated {
+		t.Fatal("expected IsAuthenticated=true for valid cookie")
+	}
+}
+
+func TestAuthMiddleware_AuthenticatedFlagUnsetForGenerated(t *testing.T) {
+	authSvc := authservice.NewAuthService("test-secret-key")
+	var authenticated bool
+	handler := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		authenticated = authctx.IsAuthenticated(r.Context())
+	})
+
+	req := httptest.NewRequest("GET", "/", nil)
+	rr := httptest.NewRecorder()
+
+	Middleware(authSvc)(handler).ServeHTTP(rr, req)
+
+	if authenticated {
+		t.Fatal("expected IsAuthenticated=false for anonymous request")
+	}
+}
+
 func TestGetUserIDFromContext(t *testing.T) {
 	ctx := context.Background()
 	userID := authctx.UserID(ctx)

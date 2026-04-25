@@ -27,8 +27,7 @@ type UserURLResponse struct {
 // @Router       /api/user/urls [get]
 func UserURLsHandler(usecase usecase.LinkReadUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		userID := authctx.UserID(request.Context())
-		if userID == "" {
+		if !authctx.IsAuthenticated(request.Context()) {
 			writer.WriteHeader(http.StatusUnauthorized)
 			return
 		}

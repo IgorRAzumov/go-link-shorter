@@ -18,8 +18,10 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
 
+const exampleSecret = "example-secret"
+
 func makeRouter(createUC usecase.LinkCreateUsecase, readUC usecase.LinkReadUsecase, deleteUC usecase.LinkDeleteUsecase) http.Handler {
-	authSvc := auth.NewAuthService("example-secret")
+	authSvc := auth.NewAuthService(exampleSecret)
 	healthUC := &commontesting.MockHealthCheckUsecase{}
 	return rest.NewRouter(rest.RouterDeps{
 		LinkCreateUsecase: createUC,
@@ -28,6 +30,13 @@ func makeRouter(createUC usecase.LinkCreateUsecase, readUC usecase.LinkReadUseca
 		HealthCheck:       healthUC,
 		AuthService:       authSvc,
 	})
+}
+
+// signedUserCookie возвращает валидную cookie user_id для Example-тестов,
+// чтобы middleware auth помечал запрос как аутентифицированный.
+func signedUserCookie(userID string) *http.Cookie {
+	authSvc := auth.NewAuthService(exampleSecret)
+	return &http.Cookie{Name: "user_id", Value: authSvc.SignUserID(userID)}
 }
 
 // ExampleNewRouter_shortenText демонстрирует POST / — сокращение URL из тела (Content-Type: text/plain).
@@ -131,7 +140,7 @@ func ExampleNewRouter_userURLs() {
 	router := makeRouter(nil, readUC, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/user/urls", nil)
-	req = req.WithContext(authctx.WithUserID(req.Context(), "u"))
+	req.AddCookie(signedUserCookie("u"))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
