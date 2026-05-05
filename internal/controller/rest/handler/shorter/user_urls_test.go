@@ -35,7 +35,7 @@ func TestUserURLsHandler_Returns204WhenNoURLs(t *testing.T) {
 	handler := UserURLsHandler(mockUsecase)
 
 	req := httptest.NewRequest("GET", "/api/user/urls", nil)
-	ctx := authctx.WithUserID(req.Context(), "test-user-id")
+	ctx := authctx.WithAuthenticated(authctx.WithUserID(req.Context(), "test-user-id"))
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 
@@ -63,7 +63,7 @@ func TestUserURLsHandler_Returns200WithURLs(t *testing.T) {
 	handler := UserURLsHandler(mockUsecase)
 
 	req := httptest.NewRequest("GET", "/api/user/urls", nil)
-	ctx := authctx.WithUserID(req.Context(), "test-user-id")
+	ctx := authctx.WithAuthenticated(authctx.WithUserID(req.Context(), "test-user-id"))
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 

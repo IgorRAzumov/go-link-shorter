@@ -18,10 +18,25 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
 
+const exampleSecret = "example-secret"
+
 func makeRouter(createUC usecase.LinkCreateUsecase, readUC usecase.LinkReadUsecase, deleteUC usecase.LinkDeleteUsecase) http.Handler {
-	authSvc := auth.NewAuthService("example-secret")
+	authSvc := auth.NewAuthService(exampleSecret)
 	healthUC := &commontesting.MockHealthCheckUsecase{}
-	return rest.NewRouter(createUC, readUC, deleteUC, healthUC, authSvc, nil, false)
+	return rest.NewRouter(rest.RouterDeps{
+		LinkCreateUsecase: createUC,
+		LinkReadUsecase:   readUC,
+		LinkDeleteUsecase: deleteUC,
+		HealthCheck:       healthUC,
+		AuthService:       authSvc,
+	})
+}
+
+// signedUserCookie возвращает валидную cookie user_id для Example-тестов,
+// чтобы middleware auth помечал запрос как аутентифицированный.
+func signedUserCookie(userID string) *http.Cookie {
+	authSvc := auth.NewAuthService(exampleSecret)
+	return &http.Cookie{Name: "user_id", Value: authSvc.SignUserID(userID)}
 }
 
 // ExampleNewRouter_shortenText демонстрирует POST / — сокращение URL из тела (Content-Type: text/plain).
@@ -76,13 +91,13 @@ func ExampleNewRouter_shortenJSON() {
 // ExampleNewRouter_batchShorten демонстрирует POST /api/shorten/batch — пакетное сокращение URL.
 func ExampleNewRouter_batchShorten() {
 	uc := &commontesting.MockLinkCreateUsecase{
-		GetBaseURLFunc: func() string { return "http://localhost:8080" },
-		ProcessBatchShortenRequestsFunc: func(_ context.Context, reqs []handlermodel.BatchShortenRequest, scheme, host string) ([]handlermodel.BatchShortenResponse, error) {
-			res := make([]handlermodel.BatchShortenResponse, len(reqs))
+		GetBaseURLFunc: func() string { return "" },
+		ProcessBatchShortenRequestsFunc: func(_ context.Context, reqs []model.BatchShortenRequest) ([]model.BatchShortenResult, error) {
+			res := make([]model.BatchShortenResult, len(reqs))
 			for i, r := range reqs {
-				res[i] = handlermodel.BatchShortenResponse{
+				res[i] = model.BatchShortenResult{
 					CorrelationID: r.CorrelationID,
-					ShortURL:      scheme + "://" + host + "/key" + r.CorrelationID,
+					ShortKey:      "key" + r.CorrelationID,
 				}
 			}
 			return res, nil
@@ -125,7 +140,7 @@ func ExampleNewRouter_userURLs() {
 	router := makeRouter(nil, readUC, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/user/urls", nil)
-	req = req.WithContext(authctx.WithUserID(req.Context(), "u"))
+	req.AddCookie(signedUserCookie("u"))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -188,7 +203,10 @@ func ExampleNewRouter_ping() {
 		},
 	}
 	authSvc := auth.NewAuthService("example-secret")
-	router := rest.NewRouter(nil, nil, nil, healthUC, authSvc, nil, false)
+	router := rest.NewRouter(rest.RouterDeps{
+		HealthCheck: healthUC,
+		AuthService: authSvc,
+	})
 
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	w := httptest.NewRecorder()

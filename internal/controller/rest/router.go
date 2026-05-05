@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 
@@ -8,41 +9,62 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/healthcheck"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/resolver"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter"
+	statshandler "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/stats"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middleware"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middleware/auth"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middleware/gzip"
+	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/middleware/trustedsubnet"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 	"github.com/go-chi/chi/v5"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-// NewRouter создаёт HTTP-роутер со всеми эндпоинтами сервиса сокращения ссылок.
-func NewRouter(
-	linkCreateUsecase usecase.LinkCreateUsecase,
-	linkReadUsecase usecase.LinkReadUsecase,
-	linkDeleteUsecase usecase.LinkDeleteUsecase,
-	healthCheck usecase.HealthCheckUsecase,
-	authService service.AuthService,
-	auditor service.AuditorService,
-	enablePprof bool,
-) http.Handler {
-	router := chi.NewRouter()
-	router.Use(middleware.HTTPLogger, gzip.GZIP, auth.Middleware(authService))
-	router.Post("/", shorter.Handler(linkCreateUsecase, auditor))
-	router.Get("/api/user/urls", shorter.UserURLsHandler(linkReadUsecase))
-	router.Post("/api/shorten", shorter.APIHandler(linkCreateUsecase, auditor))
-	router.Post("/api/shorten/batch", shorter.BatchAPIHandler(linkCreateUsecase))
-	router.Delete("/api/user/urls", shorter.UserURLsDeleteHandler(linkDeleteUsecase))
-	router.Get("/ping", healthcheck.Handler(healthCheck))
-	router.Get("/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL("/swagger/doc.json"),
-	))
-	router.Get("/{shortKey}", resolver.Handler(linkReadUsecase, auditor))
+// RouterDeps — зависимости HTTP-роутера сервиса сокращения ссылок.
+type RouterDeps struct {
+	LinkCreateUsecase usecase.LinkCreateUsecase
+	LinkReadUsecase   usecase.LinkReadUsecase
+	LinkDeleteUsecase usecase.LinkDeleteUsecase
+	HealthCheck       usecase.HealthCheckUsecase
+	StatsUsecase      usecase.StatsUsecase
+	AuthService       service.AuthService
+	Auditor           service.AuditorService
+	EnablePprof       bool
+	TrustedSubnet     *net.IPNet
+}
 
-	if enablePprof {
+// NewRouter создаёт HTTP-роутер со всеми эндпоинтами сервиса сокращения ссылок.
+//
+// Эндпоинты разделены на две группы:
+//   - публичные/пользовательские — проходят через auth middleware (ставят анонимную cookie);
+//   - внутренние (/api/internal/**) — НЕ проходят через auth, но защищены доверенной подсетью.
+func NewRouter(deps RouterDeps) http.Handler {
+	router := chi.NewRouter()
+	router.Use(middleware.HTTPLogger, gzip.GZIP)
+
+	router.Group(func(r chi.Router) {
+		r.Use(auth.Middleware(deps.AuthService))
+		r.Post("/", shorter.Handler(deps.LinkCreateUsecase, deps.Auditor))
+		r.Get("/api/user/urls", shorter.UserURLsHandler(deps.LinkReadUsecase))
+		r.Delete("/api/user/urls", shorter.UserURLsDeleteHandler(deps.LinkDeleteUsecase))
+		r.Post("/api/shorten", shorter.APIHandler(deps.LinkCreateUsecase, deps.Auditor))
+		r.Post("/api/shorten/batch", shorter.BatchAPIHandler(deps.LinkCreateUsecase))
+		r.Get("/{shortKey}", resolver.Handler(deps.LinkReadUsecase, deps.Auditor))
+	})
+
+	router.Group(func(r chi.Router) {
+		r.Use(trustedsubnet.Middleware(deps.TrustedSubnet))
+		r.Get("/api/internal/stats", statshandler.StatisticHandler(deps.StatsUsecase))
+	})
+
+	if deps.EnablePprof {
 		router.Handle("/debug/pprof/*", http.DefaultServeMux)
 		router.Handle("/debug/pprof", http.RedirectHandler("/debug/pprof/", http.StatusMovedPermanently))
 	}
+
+	router.Get("/ping", healthcheck.Handler(deps.HealthCheck))
+	router.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
 	return router
 }

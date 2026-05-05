@@ -1,5 +1,6 @@
 {
   "server_address": "localhost:8080",
+  "grpc_address": "",
   "base_url": "",
   "file_storage_path": "",
   "database_dsn": "",
@@ -9,5 +10,6 @@
   "enable_pprof": false,
   "enable_https": false,
   "tls_cert_file": "",
-  "tls_key_file": ""
+  "tls_key_file": "",
+  "trusted_subnet": ""
 }

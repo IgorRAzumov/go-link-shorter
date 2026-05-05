@@ -8,22 +8,17 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
+	"github.com/IgorRAzumov/go-link-shorter/pkg/urlutil"
 	"github.com/rs/zerolog/log"
 )
 
 // GenerateShortenURL формирует полный сокращённый URL из baseURL или scheme+host запроса.
 func GenerateShortenURL(baseURL string, shortKey string, request *http.Request) string {
-	var result string
-	if baseURL != "" {
-		result = baseURL + "/" + shortKey
-	} else {
-		scheme := "http"
-		if request.TLS != nil || request.Header.Get("X-Forwarded-Proto") == "https" {
-			scheme = "https"
-		}
-		result = scheme + "://" + request.Host + "/" + shortKey
+	scheme := "http"
+	if request.TLS != nil || request.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
 	}
-	return result
+	return urlutil.BuildShortURL(baseURL, scheme, request.Host, shortKey)
 }
 
 // GenerateShortKey вызывает use case для создания короткого ключа по URL.

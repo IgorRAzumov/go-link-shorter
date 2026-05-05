@@ -13,6 +13,28 @@ func TestLoad_DefaultValues(t *testing.T) {
 
 	cfg := loadConfigOrFail(t)
 	assertConfig(t, cfg, "localhost:8080", "")
+	if cfg.GRPCAddress != "" {
+		t.Errorf("Expected default GRPCAddress to be empty, got %q", cfg.GRPCAddress)
+	}
+}
+
+func TestLoad_GRPCAddressFromEnv(t *testing.T) {
+	setupTestEnv(t, "", "")
+	t.Setenv("GRPC_ADDRESS", "127.0.0.1:50051")
+
+	cfg := loadConfigOrFail(t)
+	if cfg.GRPCAddress != "127.0.0.1:50051" {
+		t.Errorf("Expected GRPCAddress from env, got %q", cfg.GRPCAddress)
+	}
+}
+
+func TestLoad_GRPCAddressFromFlag(t *testing.T) {
+	setupTestEnvWithFlags(t, "", "", []string{"test", "-g", "0.0.0.0:7777"})
+
+	cfg := loadConfigOrFail(t)
+	if cfg.GRPCAddress != "0.0.0.0:7777" {
+		t.Errorf("Expected GRPCAddress from flag, got %q", cfg.GRPCAddress)
+	}
 }
 
 func TestLoad_ServerAddressFromEnv(t *testing.T) {
@@ -135,6 +157,7 @@ func setupTestEnv(t *testing.T, serverAddress, baseURL string) {
 	t.Setenv("BASE_URL", baseURL)
 	t.Setenv("AUDIT_FILE", "")
 	t.Setenv("AUDIT_URL", "")
+	t.Setenv("GRPC_ADDRESS", "")
 	t.Setenv("CONFIG", "")
 	pflag.CommandLine = pflag.NewFlagSet("test", pflag.ContinueOnError)
 	oldArgs := os.Args

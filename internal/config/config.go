@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strings"
@@ -14,6 +15,7 @@ import (
 // Config — конфигурация приложения (сервер, хранилище, аудит).
 type Config struct {
 	ServerAddress   string `mapstructure:"server_address"`
+	GRPCAddress     string `mapstructure:"grpc_address"`
 	BaseShortURL    string `mapstructure:"base_url"`
 	FileStoragePath string `mapstructure:"file_storage_path"`
 	DatabaseAddress string `mapstructure:"database_dsn"`
@@ -24,6 +26,7 @@ type Config struct {
 	EnableHTTPS     bool   `mapstructure:"enable_https"`
 	TLSCertFile     string `mapstructure:"tls_cert_file"`
 	TLSKeyFile      string `mapstructure:"tls_key_file"`
+	TrustedSubnet   string `mapstructure:"trusted_subnet"`
 }
 
 // Load загружает конфигурацию из файла (если указан), переменных окружения и флагов.
@@ -43,12 +46,16 @@ func Load() (*Config, error) {
 	if err := validateURLs(&cfg); err != nil {
 		return nil, err
 	}
+	if err := validateAddresses(&cfg); err != nil {
+		return nil, err
+	}
 	return &cfg, nil
 }
 
 type flagValues struct {
 	configPath      string
 	serverAddress   string
+	grpcAddress     string
 	baseShortURL    string
 	fileStoragePath string
 	databaseDSN     string
@@ -59,11 +66,13 @@ type flagValues struct {
 	enableHTTPS     bool
 	tlsCertFile     string
 	tlsKeyFile      string
+	trustedSubnet   string
 }
 
 func parseFlags() flagValues {
 	configPath := pflag.StringP("config", "c", "", "path to JSON config file")
 	serverAddress := pflag.StringP("server-address", "a", "", "server address")
+	grpcAddress := pflag.StringP("grpc-address", "g", "", "gRPC server address")
 	baseShortURL := pflag.StringP("base-url", "b", "", "base shorter URL")
 	fileStoragePath := pflag.StringP("file-storage", "f", "", "file storage path")
 	databaseDSN := pflag.StringP("database", "d", "", "database DSN")
@@ -74,6 +83,7 @@ func parseFlags() flagValues {
 	enableHTTPS := pflag.BoolP("https", "s", false, "enable HTTPS (TLS) server")
 	tlsCertFile := pflag.String("tls-cert", "", "path to TLS certificate file (default: cert.pem when HTTPS enabled)")
 	tlsKeyFile := pflag.String("tls-key", "", "path to TLS private key file (default: key.pem when HTTPS enabled)")
+	trustedSubnet := pflag.StringP("trusted-subnet", "t", "", "trusted subnet in CIDR notation for internal endpoints")
 	pflag.Parse()
 
 	configFilePath := *configPath
@@ -84,6 +94,7 @@ func parseFlags() flagValues {
 	return flagValues{
 		configPath:      configFilePath,
 		serverAddress:   *serverAddress,
+		grpcAddress:     *grpcAddress,
 		baseShortURL:    *baseShortURL,
 		fileStoragePath: *fileStoragePath,
 		databaseDSN:     *databaseDSN,
@@ -94,6 +105,7 @@ func parseFlags() flagValues {
 		enableHTTPS:     *enableHTTPS,
 		tlsCertFile:     *tlsCertFile,
 		tlsKeyFile:      *tlsKeyFile,
+		trustedSubnet:   *trustedSubnet,
 	}
 }
 
@@ -112,6 +124,7 @@ func buildViper(flags flagValues) (*viper.Viper, error) {
 
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("server_address", "localhost:8080")
+	v.SetDefault("grpc_address", "")
 	v.SetDefault("secret_key", "default-secret-key-change-in-production")
 	v.SetDefault("enable_pprof", false)
 	v.SetDefault("enable_https", false)
@@ -120,6 +133,7 @@ func setDefaults(v *viper.Viper) {
 func bindEnv(v *viper.Viper) {
 	envBindings := map[string]string{
 		"server_address":    "SERVER_ADDRESS",
+		"grpc_address":      "GRPC_ADDRESS",
 		"base_url":          "BASE_URL",
 		"file_storage_path": "FILE_STORAGE_PATH",
 		"database_dsn":      "DATABASE_DSN",
@@ -130,6 +144,7 @@ func bindEnv(v *viper.Viper) {
 		"enable_https":      "ENABLE_HTTPS",
 		"tls_cert_file":     "TLS_CERT_FILE",
 		"tls_key_file":      "TLS_KEY_FILE",
+		"trusted_subnet":    "TRUSTED_SUBNET",
 	}
 	for key, env := range envBindings {
 		_ = v.BindEnv(key, env)
@@ -159,6 +174,7 @@ func applyFlags(v *viper.Viper, flags flagValues) {
 	}
 
 	overrideIfEnvEmpty("server_address", "SERVER_ADDRESS", flags.serverAddress)
+	overrideIfEnvEmpty("grpc_address", "GRPC_ADDRESS", flags.grpcAddress)
 	overrideIfEnvEmpty("base_url", "BASE_URL", flags.baseShortURL)
 	overrideIfEnvEmpty("file_storage_path", "FILE_STORAGE_PATH", flags.fileStoragePath)
 	overrideIfEnvEmpty("database_dsn", "DATABASE_DSN", flags.databaseDSN)
@@ -167,6 +183,7 @@ func applyFlags(v *viper.Viper, flags flagValues) {
 	overrideIfEnvEmpty("audit_url", "AUDIT_URL", flags.auditURL)
 	overrideIfEnvEmpty("tls_cert_file", "TLS_CERT_FILE", flags.tlsCertFile)
 	overrideIfEnvEmpty("tls_key_file", "TLS_KEY_FILE", flags.tlsKeyFile)
+	overrideIfEnvEmpty("trusted_subnet", "TRUSTED_SUBNET", flags.trustedSubnet)
 
 	if os.Getenv("ENABLE_PPROF") == "" && flagChanged("pprof") {
 		v.Set("enable_pprof", flags.enablePprof)
@@ -191,6 +208,25 @@ func applyTLSDefaults(v *viper.Viper) {
 	if v.GetString("tls_key_file") == "" {
 		v.Set("tls_key_file", "key.pem")
 	}
+}
+
+// validateAddresses проверяет, что адреса сервера соответствуют формату "host:port".
+func validateAddresses(cfg *Config) error {
+	for _, a := range []struct {
+		name string
+		addr string
+	}{
+		{"server_address", cfg.ServerAddress},
+		{"grpc_address", cfg.GRPCAddress},
+	} {
+		if a.addr == "" {
+			continue
+		}
+		if _, _, err := net.SplitHostPort(a.addr); err != nil {
+			return fmt.Errorf("invalid %s %q: %w", a.name, a.addr, err)
+		}
+	}
+	return nil
 }
 
 func validateURLs(cfg *Config) error {
