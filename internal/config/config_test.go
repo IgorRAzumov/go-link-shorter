@@ -13,8 +13,8 @@ func TestLoad_DefaultValues(t *testing.T) {
 
 	cfg := loadConfigOrFail(t)
 	assertConfig(t, cfg, "localhost:8080", "")
-	if cfg.GRPCAddress != "localhost:9090" {
-		t.Errorf("Expected default GRPCAddress localhost:9090, got %q", cfg.GRPCAddress)
+	if cfg.GRPCAddress != "" {
+		t.Errorf("Expected default GRPCAddress to be empty, got %q", cfg.GRPCAddress)
 	}
 }
 

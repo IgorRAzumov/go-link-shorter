@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 	"github.com/rs/zerolog/log"
 )
@@ -21,9 +20,7 @@ import (
 // @Router       /api/internal/stats [get]
 func StatisticHandler(statsUsecase usecase.StatsUsecase) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		var stats model.ServiceStats
-		var err error
-		stats, err = statsUsecase.GetStats(request.Context())
+		stats, err := statsUsecase.GetStats(request.Context())
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get stats")
 			writer.WriteHeader(http.StatusInternalServerError)
@@ -31,7 +28,6 @@ func StatisticHandler(statsUsecase usecase.StatsUsecase) http.HandlerFunc {
 		}
 
 		writer.Header().Set("Content-Type", "application/json")
-		writer.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(writer).Encode(stats); err != nil {
 			log.Error().Err(err).Msg("Failed to encode stats response")
 		}

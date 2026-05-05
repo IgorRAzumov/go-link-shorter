@@ -14,8 +14,8 @@ type Service struct {
 }
 
 // NewService создаёт сервис статистики.
-func NewService(repository repository.StatsRepository) *Service {
-	return &Service{repository: repository}
+func NewService(statsRepository repository.StatsRepository) *Service {
+	return &Service{repository: statsRepository}
 }
 
 // GetStats возвращает количество сокращённых URL и уникальных пользователей.

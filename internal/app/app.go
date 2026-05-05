@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	auditadapter "github.com/IgorRAzumov/go-link-shorter/internal/adapter/audit"
@@ -132,6 +133,9 @@ func startGrpc(
 	linkCreateUsecase usecase.LinkCreateUsecase,
 	linkReadUsecase usecase.LinkReadUsecase,
 ) (<-chan error, error) {
+	if strings.TrimSpace(config.GRPCAddress) == "" {
+		return nil, nil
+	}
 	grpcServer, err := shortenergrpc.NewGRPCServer(authService, shortenergrpc.TLSConfig{
 		Enable:   config.EnableHTTPS,
 		CertFile: config.TLSCertFile,

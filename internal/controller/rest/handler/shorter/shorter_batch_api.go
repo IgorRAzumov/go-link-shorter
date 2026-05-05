@@ -7,8 +7,10 @@ import (
 	"net/http"
 
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
-	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter/model"
+	handlermodel "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter/model"
+	domainmodel "github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
+	"github.com/IgorRAzumov/go-link-shorter/pkg/urlutil"
 )
 
 // BatchAPIHandler возвращает обработчик POST /api/shorten/batch — пакетное сокращение URL.
@@ -18,8 +20,8 @@ import (
 // @Tags         shorter
 // @Accept       json
 // @Produce      json
-// @Param        request  body      []model.BatchShortenRequest  true  "Список URL"
-// @Success      201      {array}   model.BatchShortenResponse
+// @Param        request  body      []handlermodel.BatchShortenRequest  true  "Список URL"
+// @Success      201      {array}   handlermodel.BatchShortenResponse
 // @Failure      400      {string}  string  "Некорректный запрос"
 // @Router       /api/shorten/batch [post]
 func BatchAPIHandler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
@@ -29,7 +31,7 @@ func BatchAPIHandler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
 			return
 		}
 
-		var batchRequests []model.BatchShortenRequest
+		var batchRequests []handlermodel.BatchShortenRequest
 		dec := json.NewDecoder(request.Body)
 		if err := dec.Decode(&batchRequests); err != nil {
 			common.BadRequestError(writer, err)
@@ -44,17 +46,19 @@ func BatchAPIHandler(usecase usecase.LinkCreateUsecase) http.HandlerFunc {
 			return
 		}
 
-		scheme := "http"
-		if request.TLS != nil || request.Header.Get("X-Forwarded-Proto") == "https" {
-			scheme = "https"
-		}
-		host := request.Host
-
-		batchResponses, err := usecase.ProcessBatchShortenRequests(request.Context(), batchRequests, scheme, host)
+		domainRequests := createDomainRequests(batchRequests)
+		batchResults, err := usecase.ProcessBatchShortenRequests(request.Context(), domainRequests)
 		if err != nil {
 			common.InternalError(writer, err)
 			return
 		}
+
+		scheme := "http"
+		if request.TLS != nil || request.Header.Get("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		baseURL := usecase.GetBaseURL()
+		batchResponses := createResponse(batchResults, baseURL, scheme, request)
 
 		responseBytes, jsonErr := json.Marshal(batchResponses)
 		if jsonErr != nil {
@@ -78,4 +82,26 @@ func IsApplicationJSON(contentType string) bool {
 		return false
 	}
 	return mediaType == common.ApplicationJSON
+}
+
+func createDomainRequests(batchRequests []handlermodel.BatchShortenRequest) []domainmodel.BatchShortenRequest {
+	domainRequests := make([]domainmodel.BatchShortenRequest, 0, len(batchRequests))
+	for _, req := range batchRequests {
+		domainRequests = append(domainRequests, domainmodel.BatchShortenRequest{
+			CorrelationID: req.CorrelationID,
+			OriginalURL:   req.OriginalURL,
+		})
+	}
+	return domainRequests
+}
+
+func createResponse(batchResults []domainmodel.BatchShortenResult, baseURL string, scheme string, request *http.Request) []handlermodel.BatchShortenResponse {
+	batchResponses := make([]handlermodel.BatchShortenResponse, 0, len(batchResults))
+	for _, r := range batchResults {
+		batchResponses = append(batchResponses, handlermodel.BatchShortenResponse{
+			CorrelationID: r.CorrelationID,
+			ShortURL:      urlutil.BuildShortURL(baseURL, scheme, request.Host, r.ShortKey),
+		})
+	}
+	return batchResponses
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common"
 	commontesting "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/common/testing"
 	"github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter/model"
+	domainmodel "github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 )
 
 func TestBatchAPIHandler_WrongMethod(t *testing.T) {
@@ -54,12 +55,12 @@ func TestBatchAPIHandler_WrongContentType(t *testing.T) {
 				},
 			}
 			if strings.Contains(testCase.contentType, "application/json") && testCase.contentType != "" {
-				mockUsecase.ProcessBatchShortenRequestsFunc = func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
-					responses := make([]model.BatchShortenResponse, 0, len(requests))
+				mockUsecase.ProcessBatchShortenRequestsFunc = func(ctx context.Context, requests []domainmodel.BatchShortenRequest) ([]domainmodel.BatchShortenResult, error) {
+					responses := make([]domainmodel.BatchShortenResult, 0, len(requests))
 					for _, req := range requests {
-						responses = append(responses, model.BatchShortenResponse{
+						responses = append(responses, domainmodel.BatchShortenResult{
 							CorrelationID: req.CorrelationID,
-							ShortURL:      "http://localhost:8080/test-key",
+							ShortKey:      "test-key",
 						})
 					}
 					return responses, nil
@@ -134,7 +135,7 @@ func TestBatchAPIHandler_EmptyBatch(t *testing.T) {
 
 func TestBatchAPIHandler_CreateShortKeysBatchReturnsError(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkCreateUsecase{
-		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
+		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []domainmodel.BatchShortenRequest) ([]domainmodel.BatchShortenResult, error) {
 			return nil, errors.New("ProcessBatchShortenRequests error")
 		},
 	}
@@ -154,12 +155,13 @@ func TestBatchAPIHandler_CreateShortKeysBatchReturnsError(t *testing.T) {
 func TestBatchAPIHandler_Success_WithBaseURL(t *testing.T) {
 	expectedShortKey := "abc123"
 	mockUsecase := &commontesting.MockLinkCreateUsecase{
-		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
-			responses := make([]model.BatchShortenResponse, 0, len(requests))
+		GetBaseURLFunc: func() string { return "http://localhost:8080" },
+		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []domainmodel.BatchShortenRequest) ([]domainmodel.BatchShortenResult, error) {
+			responses := make([]domainmodel.BatchShortenResult, 0, len(requests))
 			for _, req := range requests {
-				responses = append(responses, model.BatchShortenResponse{
+				responses = append(responses, domainmodel.BatchShortenResult{
 					CorrelationID: req.CorrelationID,
-					ShortURL:      "http://localhost:8080/" + expectedShortKey,
+					ShortKey:      expectedShortKey,
 				})
 			}
 			return responses, nil
@@ -204,13 +206,14 @@ func TestBatchAPIHandler_Success_WithBaseURL(t *testing.T) {
 
 func TestBatchAPIHandler_Success_MultipleURLs(t *testing.T) {
 	mockUsecase := &commontesting.MockLinkCreateUsecase{
-		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
+		GetBaseURLFunc: func() string { return "http://localhost:8080" },
+		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []domainmodel.BatchShortenRequest) ([]domainmodel.BatchShortenResult, error) {
 			keys := []string{"key1", "key2", "key3"}
-			responses := make([]model.BatchShortenResponse, 0, len(requests))
+			responses := make([]domainmodel.BatchShortenResult, 0, len(requests))
 			for i, req := range requests {
-				responses = append(responses, model.BatchShortenResponse{
+				responses = append(responses, domainmodel.BatchShortenResult{
 					CorrelationID: req.CorrelationID,
-					ShortURL:      "http://localhost:8080/" + keys[i],
+					ShortKey:      keys[i],
 				})
 			}
 			return responses, nil
@@ -262,12 +265,13 @@ func TestBatchAPIHandler_Success_MultipleURLs(t *testing.T) {
 func TestBatchAPIHandler_Success_WithoutBaseURL_HTTP(t *testing.T) {
 	expectedShortKey := "xyz789"
 	mockUsecase := &commontesting.MockLinkCreateUsecase{
-		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []model.BatchShortenRequest, scheme, host string) ([]model.BatchShortenResponse, error) {
-			responses := make([]model.BatchShortenResponse, 0, len(requests))
+		GetBaseURLFunc: func() string { return "" },
+		ProcessBatchShortenRequestsFunc: func(ctx context.Context, requests []domainmodel.BatchShortenRequest) ([]domainmodel.BatchShortenResult, error) {
+			responses := make([]domainmodel.BatchShortenResult, 0, len(requests))
 			for _, req := range requests {
-				responses = append(responses, model.BatchShortenResponse{
+				responses = append(responses, domainmodel.BatchShortenResult{
 					CorrelationID: req.CorrelationID,
-					ShortURL:      scheme + "://" + host + "/" + expectedShortKey,
+					ShortKey:      expectedShortKey,
 				})
 			}
 			return responses, nil

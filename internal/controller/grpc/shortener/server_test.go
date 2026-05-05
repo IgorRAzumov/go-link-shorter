@@ -8,7 +8,6 @@ import (
 
 	"github.com/IgorRAzumov/go-link-shorter/api/shortenerpb"
 	shortenergrpc "github.com/IgorRAzumov/go-link-shorter/internal/controller/grpc/shortener"
-	handlermodel "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	authservice "github.com/IgorRAzumov/go-link-shorter/internal/domain/service/auth"
 	"google.golang.org/grpc"
@@ -37,7 +36,7 @@ func (m *mockCreate) CreateShortKey(_ context.Context, u string) (string, error)
 func (m *mockCreate) CreateShortKeysBatch(_ context.Context, _ []string) (map[string]string, error) {
 	return nil, errors.New("not implemented")
 }
-func (m *mockCreate) ProcessBatchShortenRequests(_ context.Context, _ []handlermodel.BatchShortenRequest, _, _ string) ([]handlermodel.BatchShortenResponse, error) {
+func (m *mockCreate) ProcessBatchShortenRequests(_ context.Context, _ []model.BatchShortenRequest) ([]model.BatchShortenResult, error) {
 	return nil, errors.New("not implemented")
 }
 func (m *mockCreate) GetBaseURL() string { return m.baseURL }

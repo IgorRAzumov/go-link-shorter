@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	handlermodel "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/usecase"
 )
@@ -12,7 +11,7 @@ import (
 type MockLinkCreateUsecase struct {
 	CreateShortKeyFunc              func(ctx context.Context, URL string) (string, error)
 	CreateShortKeysBatchFunc        func(ctx context.Context, urls []string) (map[string]string, error)
-	ProcessBatchShortenRequestsFunc func(ctx context.Context, requests []handlermodel.BatchShortenRequest, scheme, host string) ([]handlermodel.BatchShortenResponse, error)
+	ProcessBatchShortenRequestsFunc func(ctx context.Context, requests []model.BatchShortenRequest) ([]model.BatchShortenResult, error)
 	GetBaseURLFunc                  func() string
 }
 
@@ -37,11 +36,11 @@ func (mock *MockLinkCreateUsecase) GetBaseURL() string {
 	return ""
 }
 
-func (mock *MockLinkCreateUsecase) ProcessBatchShortenRequests(ctx context.Context, requests []handlermodel.BatchShortenRequest, scheme, host string) ([]handlermodel.BatchShortenResponse, error) {
+func (mock *MockLinkCreateUsecase) ProcessBatchShortenRequests(ctx context.Context, requests []model.BatchShortenRequest) ([]model.BatchShortenResult, error) {
 	if mock.ProcessBatchShortenRequestsFunc != nil {
-		return mock.ProcessBatchShortenRequestsFunc(ctx, requests, scheme, host)
+		return mock.ProcessBatchShortenRequestsFunc(ctx, requests)
 	}
-	return []handlermodel.BatchShortenResponse{}, nil
+	return []model.BatchShortenResult{}, nil
 }
 
 var _ usecase.LinkCreateUsecase = (*MockLinkCreateUsecase)(nil)

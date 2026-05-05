@@ -91,13 +91,13 @@ func ExampleNewRouter_shortenJSON() {
 // ExampleNewRouter_batchShorten демонстрирует POST /api/shorten/batch — пакетное сокращение URL.
 func ExampleNewRouter_batchShorten() {
 	uc := &commontesting.MockLinkCreateUsecase{
-		GetBaseURLFunc: func() string { return "http://localhost:8080" },
-		ProcessBatchShortenRequestsFunc: func(_ context.Context, reqs []handlermodel.BatchShortenRequest, scheme, host string) ([]handlermodel.BatchShortenResponse, error) {
-			res := make([]handlermodel.BatchShortenResponse, len(reqs))
+		GetBaseURLFunc: func() string { return "" },
+		ProcessBatchShortenRequestsFunc: func(_ context.Context, reqs []model.BatchShortenRequest) ([]model.BatchShortenResult, error) {
+			res := make([]model.BatchShortenResult, len(reqs))
 			for i, r := range reqs {
-				res[i] = handlermodel.BatchShortenResponse{
+				res[i] = model.BatchShortenResult{
 					CorrelationID: r.CorrelationID,
-					ShortURL:      scheme + "://" + host + "/key" + r.CorrelationID,
+					ShortKey:      "key" + r.CorrelationID,
 				}
 			}
 			return res, nil

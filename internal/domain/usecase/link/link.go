@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	handlermodel "github.com/IgorRAzumov/go-link-shorter/internal/controller/rest/handler/shorter/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/authctx"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/model"
 	"github.com/IgorRAzumov/go-link-shorter/internal/domain/service"
@@ -101,31 +100,13 @@ func (usecase *CreatorUsecase) CreateShortKeysBatch(ctx context.Context, urls []
 	return result, nil
 }
 
-func (usecase *CreatorUsecase) ProcessBatchShortenRequests(ctx context.Context, requests []handlermodel.BatchShortenRequest, scheme, host string) ([]handlermodel.BatchShortenResponse, error) {
+func (usecase *CreatorUsecase) ProcessBatchShortenRequests(ctx context.Context, requests []model.BatchShortenRequest) ([]model.BatchShortenResult, error) {
 	userID := authctx.UserID(ctx)
-	domainRequests := make([]model.BatchShortenRequest, 0, len(requests))
-	for _, req := range requests {
-		domainRequests = append(domainRequests, model.BatchShortenRequest{
-			CorrelationID: req.CorrelationID,
-			OriginalURL:   req.OriginalURL,
-		})
-	}
-
-	batchResults, err := usecase.shorter.ProcessBatchShortenRequests(ctx, domainRequests, usecase.resolver, userID)
+	batchResults, err := usecase.shorter.ProcessBatchShortenRequests(ctx, requests, usecase.resolver, userID)
 	if err != nil {
 		return nil, err
 	}
-
-	batchResponses := make([]handlermodel.BatchShortenResponse, 0, len(batchResults))
-	for _, result := range batchResults {
-		shortURL := usecase.buildShortURL(result.ShortKey, scheme, host)
-		batchResponses = append(batchResponses, handlermodel.BatchShortenResponse{
-			CorrelationID: result.CorrelationID,
-			ShortURL:      shortURL,
-		})
-	}
-
-	return batchResponses, nil
+	return batchResults, nil
 }
 
 func (usecase *ReaderUsecase) GetUserURLs(ctx context.Context) ([]*model.Link, error) {

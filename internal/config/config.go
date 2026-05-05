@@ -124,7 +124,7 @@ func buildViper(flags flagValues) (*viper.Viper, error) {
 
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("server_address", "localhost:8080")
-	v.SetDefault("grpc_address", "localhost:9090")
+	v.SetDefault("grpc_address", "")
 	v.SetDefault("secret_key", "default-secret-key-change-in-production")
 	v.SetDefault("enable_pprof", false)
 	v.SetDefault("enable_https", false)
